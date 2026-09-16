@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Prediction Dashboard</title>
+    <!-- Load React 18 from CDN -->
+    <!-- Import Map for ES Modules -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.3.1",
+        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+        "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime"
+      }
+    }
+    </script>
+    <!-- Load Babel for on-the-fly JSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Load Plotly from CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #030712;
+            --card-bg: rgba(30, 41, 59, 0.4);
+            --border-color: rgba(255, 255, 255, 0.05);
+            --border-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-green: #10b981;
+            --accent-green-bg: rgba(16, 185, 129, 0.05);
+            --accent-red: #f43f5e;
+            --accent-red-bg: rgba(244, 63, 94, 0.1);
+            --accent-gold: #f59e0b;
+            --accent-gold-bg: rgba(245, 158, 11, 0.06);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08), transparent 45%), 
+                radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.05), transparent 45%);
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 18px;
+        }
+
+        .logo {
+            font-size: 36px;
+        }
+
+        .header-text {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Tabs Navigation */
+        .tabs {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 28px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 6px 16px;
+            transition: all 0.2s ease;
+            position: relative;
+            font-family: inherit;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-blue);
+        }
+
+        .tab-btn.active::after {
+            content: "";
+            position: absolute;
+            bottom: -11px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-blue);
+            box-shadow: 0 0 10px var(--accent-blue);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 16px;
+            width: 100%;
+            max-width: 240px;
+            min-width: 140px;
+            outline: none;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            border-radius: 10px;
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-blue-hover));
+            color: #ffffff;
+            box-shadow: 0 4px 14px -3px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px -3px rgba(59, 130, 246, 0.5);
+            filter: brightness(1.05);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: var(--accent-gold);
+            padding: 12px 16px;
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-gold-bg);
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        .horizon-group {
+            display: flex;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .h-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            border-radius: 7px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: capitalize;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+
+        .h-btn.active {
+            background: var(--accent-blue);
+            color: #ffffff;
+            box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Newspaper emoji button */
+        .news-btn {
+            font-size: 22px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            user-select: none;
+            line-height: 1;
+        }
+
+        .news-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Cards */
+        .metrics-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px 20px;
+            flex: 1 1 160px;
+            min-width: 0;
+            box-sizing: border-box;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-hover);
+            box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.6), 0 0 15px -3px rgba(59, 130, 246, 0.1);
+        }
+
+        .card-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.075em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-value {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .card-unit {
+            font-size: 13px;
+            font-weight: 500;
+            margin-left: 2px;
+            color: var(--text-muted);
+        }
+
+        .info-icon {
+            font-size: 11px;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.15s ease;
+        }
+
+        .info-icon:hover {
+            color: var(--text-primary);
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Regime Badges */
+        .regime-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .regime-bull {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .regime-bear {
+            background: rgba(244, 63, 94, 0.15);
+            color: #fda4af;
+            border: 1px solid rgba(244, 63, 94, 0.25);
+        }
+
+        .regime-sideways {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fcd34d;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .warning-banner {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            padding: 12px 18px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin: 36px 0 18px;
+            letter-spacing: -0.01em;
+        }
+
+        .chart-wrapper {
+            background: rgba(30, 41, 59, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 28px;
+        }
+
+        /* Chips */
+        .chips-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 13px;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            border-color: var(--border-hover);
+        }
+
+        .chip-label {
+            color: #60a5fa;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .chip-remove {
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+
+        .chip-remove:hover {
+            color: var(--accent-red);
+        }
+
+        .error-box {
+            background: var(--accent-red-bg);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            color: #fda4af;
+            border-radius: 10px;
+            padding: 12px 18px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: var(--text-muted);
+            margin-top: 100px;
+            font-size: 15px;
+            font-weight: 500;
+            background: rgba(30, 41, 59, 0.15);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.04);
+        }
+
+        /* Modals and Drawers */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(3, 7, 18, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.18s ease-out;
+        }
+
+        .modal-content {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px 28px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.18s ease-out;
+        }
+
+        .news-modal-content {
+            max-width: 650px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            transition: color 0.15s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .modal-text {
+            margin: 0;
+        }
+
+        /* News List styles */
+        .news-list {
+            max-height: 420px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .news-item {
+            padding: 14px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .news-item:hover {
+            background: rgba(255, 255, 255, 0.035);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .news-title-link {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            display: block;
+            margin-bottom: 8px;
+            line-height: 1.4;
+            transition: color 0.15s ease;
+        }
+
+        .news-title-link:hover {
+            color: var(--accent-blue);
+        }
+
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .sentiment-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .sentiment-positive {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .sentiment-negative {
+            background: rgba(244, 63, 94, 0.15);
+            color: #fda4af;
+        }
+
+        .sentiment-neutral {
+            background: rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+        }
+
+        /* Portfolio split wrapper */
+        .split-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .split-col {
+            flex: 1 1 340px;
+            min-width: 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(12px) scale(0.98); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .calc-row {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        /* Portfolio Optimization Styles */
+        .portfolio-explanation {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: -12px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            font-size: 13px;
+            line-height: 1.5;
+            color: #94a3b8;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .portfolio-explanation strong {
+            color: #f8fafc;
+        }
+
+        .allocation-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+        }
+
+        .allocation-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            transition: all 0.2s ease;
+        }
+
+        .allocation-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .allocation-ticker {
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .allocation-value {
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        /* Language Switcher Switch Style */
+        .lang-switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: #64748b;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            padding: 4px 10px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 18px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: .2s;
+            border-radius: 18px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 2px;
+            bottom: 2px;
+            background-color: #94a3b8;
+            transition: .2s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+            background-color: #10b981;
+        }
+
+        .lang-label {
+            cursor: pointer;
+            transition: color 0.2s;
+            user-select: none;
+        }
+
+        .lang-label.active {
+            color: #f8fafc;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useCallback, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+
+        // API Base defaults to current origin or http://127.0.0.1:8000 if opened as a local file
+        const API_BASE = (window.location.origin && window.location.origin.startsWith("http")) 
+            ? window.location.origin 
+            : "http://127.0.0.1:8000";
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        const fmt = (n, dec = 2) =>
+            n == null ? "—" : Number(n).toFixed(dec);
+
+        const pctColor = (n) =>
+            n >= 0 ? "#10b981" : "#f43f5e";
+
+        const HORIZONS = ["daily", "weekly", "monthly"];
+
+        // ── Definitions ──────────────────────────────────────────────────────
+
+                const METRIC_TIPS = {
+            it: {
+                "Last Price":       "L'ultimo prezzo di chiusura registrato per l'azione in USD.",
+                "Predicted Price":  "Il prezzo previsto dal modello alla fine dell'orizzonte temporale selezionato.",
+                "Expected Return":  "Rendimento logaritmico cumulativo previsto convertito in percentuale per l'orizzonte temporale selezionato.",
+                "80% CI":           "L'intervallo di confidenza all'80%, che rappresenta i limiti empirici entro i quali il prezzo dovrebbe oscillare (Z-score empirico: 1.28).",
+                "Vol (21d)":        "Volatilità rolling a 21 giorni annualizzata. Utilizzata come denominatore del segnale di ingresso.",
+                "OOS RMSE":         "Errore quadratico medio predittivo (RMSE) sui log-rendimenti nei fold out-of-sample (più basso è, meglio è).",
+                "Expected value":   "Il valore atteso del tuo investimento basato sul rendimento previsto dal modello.",
+                "Best case (CI)":   "Il valore del tuo investimento nello scenario migliore, corrispondente al limite superiore dell'intervallo di confidenza all'80%.",
+                "Worst case (CI)":  "Il valore del tuo investimento nello scenario peggiore, corrispondente al limite inferiore dell'intervallo di confidenza all'80%.",
+                "Strategy Return":  "Rendimento totale della strategia long-or-flat sui dati OOS, al netto dei costi di transazione dello 0.1% per operazione.",
+                "Buy & Hold":        "Rendimento totale ottenuto acquistando e mantenendo il titolo (linea di base continua per il confronto).",
+                "Sharpe Ratio":     "Sharpe Ratio annualizzato = media(log-ret giornaliero) / deviaz.standard(log-ret giornaliero) × √252. >1 è buono, >2 è ottimo.",
+                "Max Drawdown":     "La massima perdita percentuale registrata dal picco al minimo della curva di equity OOS. Più è negativo, più è rischioso.",
+                "# Trades":         "Il numero totale di operazioni effettuate durante il backtest out-of-sample.",
+                "Elapsed":          "Il tempo di calcolo totale impiegato dal server in secondi per addestrare il modello e calcolare i risultati.",
+                "Market Regime":    "Classificazione dello stato del mercato tramite GMM (Gaussian Mixture Model) basato su rendimenti e volatilità a 21 giorni. I mercati laterali sono più rischiosi.",
+                "Portfolio Risk":   "Volatilità (rischio) attesa del portafoglio complessivo per il periodo selezionato, basata sulle correlazioni storiche tra i titoli.",
+                "Portfolio Return": "Rendimento atteso del portafoglio per il periodo selezionato, basato sulle previsioni del modello.",
+                "Efficient Frontier": "La Frontiera Efficiente mostra la relazione tra il Rischio Atteso (volatilità, asse X) e il Rendimento Atteso (asse Y) per 3.000 portafogli simulati con pesi casuali. Ogni punto è colorato in base all'efficienza (Sharpe Ratio). Il portafoglio ottimale (star verde) massimizza il rendimento riducendo al minimo il rischio, posizionandosi sul limite in alto a sinistra. Il portafoglio conservativo (diamante blu) indica il rischio minimo assoluto.",
+                "Max Sharpe Allocation (Optimal)": "Ripartizione del capitale calcolata per massimizzare il rendimento per ogni unità di rischio complessiva del portafoglio. Cerca l'efficienza massima (Sharpe Ratio più elevato).",
+                "Min Volatility Allocation (Conservative)": "Ripartizione del capitale mirata a ridurre al minimo assoluto la volatilità (rischio) del portafoglio globale, sfruttando la diversificazione e le correlazioni storiche tra i titoli.",
+                "Monte Carlo Price Simulation": "Simulazione probabilistica di 100 futuri percorsi di prezzo. La linea spessa evidenzia la traiettoria mediana, mentre l'area sfumata mostra la dispersione probabilistica basata sulla volatilità storica ed il trend previsto.",
+                "Historical Correlation Matrix": "Mostra la correlazione storica giornaliera tra le coppie di azioni. Valori vicini a 1.0 indicano che i titoli si muovono nella stessa direzione, mentre valori vicini a 0 o negativi indicano che offrono un'ottima diversificazione.",
+                "Historical Portfolio Backtest": "Confronta l'andamento storico cumulato (equity curve) dei tre portafogli: Max Sharpe (massima efficienza teorica), Min Volatility (rischio minimo) e Equal Weight (esposizione uniforme 1/N). Permette di valutare le performance storiche retrospettive delle strategie ottimizzate.",
+            },
+            en: {
+                "Last Price":       "The most recent closing price of the stock in USD.",
+                "Predicted Price":  "The model's forecasted stock price at the end of the selected prediction horizon.",
+                "Expected Return":  "Predicted cumulative log-return converted to % for the selected horizon.",
+                "80% CI":           "The 80% confidence interval range, representing the empirical bounds within which the price is expected to fall (empirical Z-score: 1.28).",
+                "Vol (21d)":        "21-day rolling annualised volatility of log-returns. Used as the entry-signal denominator.",
+                "OOS RMSE":         "Root Mean Squared Error of log-return predictions on out-of-sample folds (lower = better).",
+                "Expected value":   "The expected value of your investment based on the model's forecasted return.",
+                "Best case (CI)":   "The best-case value of your investment, corresponding to the upper bound of the 80% confidence interval.",
+                "Worst case (CI)":  "The worst-case value of your investment, corresponding to the lower bound of the 80% confidence interval.",
+                "Strategy Return":  "Total return of the long-or-flat strategy on OOS data, after 0.1% transaction costs per leg.",
+                "Buy & Hold":        "Total return of the buy-and-hold strategy on OOS data (continuous baseline for comparison).",
+                "Sharpe Ratio":     "Annualised Sharpe = mean(daily log-ret) / std(daily log-ret) × √252. >1 is good, >2 is strong.",
+                "Max Drawdown":     "Largest peak-to-trough decline in the OOS equity curve. More negative = riskier strategy.",
+                "# Trades":         "The total number of entry trades executed during the out-of-sample backtest period.",
+                "Elapsed":          "The total server execution time in seconds to fetch data and train the XGBoost model.",
+                "Market Regime":    "Market classification using GMM (Gaussian Mixture Model) based on 21d returns and volatility. Sideways markets are riskier.",
+                "Portfolio Risk":   "Expected portfolio volatility (risk) for the selected simulation period, based on historical asset correlations.",
+                "Portfolio Return": "Expected portfolio return for the selected simulation period, based on model predictions.",
+                "Efficient Frontier": "The Efficient Frontier shows the relationship between Expected Volatility (Risk, X-axis) and Expected Return (Y-axis) for 3,000 simulated portfolios with random weights. Each point is colored by efficiency (Sharpe Ratio). The optimal portfolio (green star) maximizes return while minimizing risk, positioning itself on the top-left boundary. The conservative portfolio (blue diamond) represents the absolute minimum risk.",
+                "Max Sharpe Allocation (Optimal)": "Capital allocation calculated to maximize return for each unit of overall portfolio risk. Targets maximum efficiency (highest Sharpe Ratio).",
+                "Min Volatility Allocation (Conservative)": "Capital allocation aimed at minimizing absolute volatility (risk) of the global portfolio, leveraging historical diversification and correlations among assets.",
+                "Monte Carlo Price Simulation": "Probabilistic simulation of 100 future price paths. The thick line highlights the median path, while the shaded area shows the dispersion based on historical volatility and predicted drift.",
+                "Historical Correlation Matrix": "Displays the daily historical correlation between pairs of stocks. Values close to 1.0 indicate assets moving in lockstep, while values near 0 or negative suggest strong diversification benefits.",
+                "Historical Portfolio Backtest": "Compares the cumulative historical growth (equity curve) of three portfolios: Max Sharpe (optimal efficiency), Min Volatility (minimal risk), and Equal Weight (1/N uniform exposure). Helps evaluate retrospective performance of optimized allocations.",
+            }
+        };
+
+        const TRANSLATIONS = {
+            it: {
+                "title": "Stock Prediction Dashboard",
+                "subtitle": "XGBoost · Regimi GMM · Teoria di Markowitz · Simulatore di Portafoglio",
+                "tab_optimizer": "Ottimizzatore di Portafoglio",
+                "tab_simulator": "Simulatore di Portafoglio Personalizzato",
+                "placeholder_ticker": "Ticker (es. AAPL)",
+                "placeholder_tickers": "Ticker separati da virgola (es. AAPL, MSFT, TSLA)",
+                "btn_save": "★ Salva",
+                "btn_run": "Avvia Analisi",
+                "btn_running": "Analisi...",
+                "btn_optimize": "Ottimizza Allocazione",
+                "btn_optimizing": "Ottimizzazione...",
+                "news_tooltip": "Clicca per visualizzare notizie e sentiment",
+                "placeholder_predict": "Inserisci un ticker (es. AAPL, TSLA) e premi Avvia Analisi per iniziare.",
+                "placeholder_optimize": "Inserisci più ticker separati da virgola e premi Ottimizza Allocazione per simulare la Frontiera Efficiente.",
+                "placeholder_simulator": "Modifica i ticker o imposta i tuoi pesi personali (%) e premi Calcola Portafoglio Personale per valutare la tua combinazione.",
+                
+                // Metrics
+                "Last Price": "Ultimo Prezzo",
+                "Predicted Price": "Prezzo Previsto",
+                "Expected Return": "Rendimento Atteso",
+                "80% CI": "80% CI",
+                "Market Regime": "Regime di Mercato",
+                "OOS RMSE": "OOS RMSE",
+                "Expected value": "Valore Atteso",
+                "Best case (CI)": "Caso Migliore (CI)",
+                "Worst case (CI)": "Caso Peggiore (CI)",
+                "Strategy Return": "Rendimento Strategia",
+                "Buy & Hold": "Buy & Hold",
+                "Sharpe Ratio": "Sharpe Ratio",
+                "Max Drawdown": "Max Drawdown",
+                "# Trades": "N. Operazioni",
+                "Elapsed": "Tempo Esecuzione",
+                "Portfolio Return": "Rendimento Portafoglio",
+                "Portfolio Risk": "Rischio Portafoglio",
+                
+                // Regimes
+                "Bull Market": "Bull Market",
+                "Bear Market": "Bear Market",
+                "Sideways / High Volatility": "Laterale / Alta Volatilità",
+                
+                // Calculator
+                "calc_title": "Calcolatore di Investimento",
+                "calc_placeholder": "Importo da investire (USD)",
+                
+                // Backtest Section
+                "backtest_title": "Backtest — Long o Flat (costi 0.1%)",
+                
+                // News
+                "news_title": "📰 Ultime Notizie & Sentiment del Titolo",
+                "news_empty": "Nessuna notizia trovata per questo titolo.",
+                "sentiment_positive": "Positivo",
+                "sentiment_negative": "Negativo",
+                "sentiment_neutral": "Neutro",
+                
+                // Portfolio Optimizer
+                "opt_perf_title": "Performance dei Portafogli Ottimali",
+                "opt_explanation": "Questa sezione consente di ottimizzare la ripartizione del capitale su più azioni contemporaneamente. Inserisci una lista di ticker separati da virgoles (es. AAPL, MSFT, TSLA, AMZN), specifica il numero di mesi da simulare ed imposta eventuali vincoli di peso. Il sistema addestrerà i modelli predittivi XGBoost, analizzerà le correlazioni storiche di rischio e simulerà combinazioni di portafoglio per calcolare l'allocazione ideale: quella a Massimo Sharpe (rendimento massimo rispetto al rischio) e quella a Minima Volatilità (rischio ridotto al minimo).",
+                "label_sim_months": "Mesi da simulare:",
+                "label_min_w": "Peso Min %:",
+                "label_max_w": "Peso Max %:",
+                
+                // Chart Titles
+                "chart_prediction_title": "Previsione prezzo di",
+                "chart_backtest_title": "Curva Equity Backtest di",
+                "chart_frontier_title": "Frontiera Efficiente (Rischio vs Rendimento Simulato)",
+                "chart_shap_title": "Top 5 Contributi SHAP delle Feature (Impatto sulle Previsioni)",
+                "chart_mc_title": "Simulazione Monte Carlo dei Prezzi (100 percorsi)",
+                "chart_corr_title": "Matrice delle Correlazioni Storiche",
+                "chart_backtest_port_title": "Backtest Storico: Strategie vs Equipesato (1/N)",
+                
+                // Axes
+                "axis_date": "Data",
+                "axis_price": "Prezzo (USD)",
+                "axis_return_pct": "Rendimento %",
+                "axis_shap_val": "Valore SHAP (Impatto sul log-return previsto)",
+                "axis_risk_vol": "Volatilità Attesa (Rischio) %",
+                "axis_exp_ret": "Rendimento Atteso %",
+                "axis_port_equity": "Valore del Portafoglio (Base 1.0)",
+                
+                // Chart legends/traces
+                "trace_hist": "Prezzo Storico",
+                "trace_pred_oos": "Previsto OOS",
+                "trace_actual_oos": "Effettivo OOS",
+                "trace_next_pred": "Prossima Previsione",
+                "trace_strategy": "Strategia",
+                "trace_bh": "Buy & Hold",
+                "trace_sim_port": "Portafogli Simulati",
+                "trace_max_sharpe": "Portafoglio Max Sharpe",
+                "trace_min_vol": "Portafoglio Min Volatilità",
+                "trace_max_sharpe_port": "Portafoglio Max Sharpe",
+                "trace_min_vol_port": "Portafoglio Min Volatilità",
+                "trace_equal_weight_port": "Portafoglio Equipesato (1/N)"
+            },
+            en: {
+                "title": "Stock Prediction Dashboard",
+                "subtitle": "XGBoost · GMM Regimes · Markowitz Theory · Portfolio Simulator",
+                "tab_optimizer": "Portfolio Optimizer",
+                "tab_simulator": "Custom Portfolio Simulator",
+                "placeholder_ticker": "Ticker (e.g. AAPL)",
+                "placeholder_tickers": "Comma-separated tickers (e.g. AAPL, MSFT, TSLA)",
+                "btn_save": "★ Save",
+                "btn_run": "Run Analysis",
+                "btn_running": "Analyzing...",
+                "btn_optimize": "Optimize Allocation",
+                "btn_optimizing": "Optimizing...",
+                "news_tooltip": "Click to view news & sentiment",
+                "placeholder_predict": "Enter a ticker (e.g. AAPL, TSLA) and press Run Analysis to start.",
+                "placeholder_optimize": "Enter multiple tickers separated by comma and press Optimize Allocation to simulate the Efficient Frontier.",
+                "placeholder_simulator": "Modify tickers or set your custom percentage weights (%) and press Evaluate Custom Portfolio to test your mix.",
+                
+                // Metrics
+                "Last Price": "Last Price",
+                "Predicted Price": "Predicted Price",
+                "Expected Return": "Expected Return",
+                "80% CI": "80% CI",
+                "Market Regime": "Market Regime",
+                "OOS RMSE": "OOS RMSE",
+                "Expected value": "Expected Value",
+                "Best case (CI)": "Best Case (CI)",
+                "Worst case (CI)": "Worst Case (CI)",
+                "Strategy Return": "Strategy Return",
+                "Buy & Hold": "Buy & Hold",
+                "Sharpe Ratio": "Sharpe Ratio",
+                "Max Drawdown": "Max Drawdown",
+                "# Trades": "# Trades",
+                "Elapsed": "Elapsed Time",
+                "Portfolio Return": "Portfolio Return",
+                "Portfolio Risk": "Portfolio Risk",
+                
+                // Regimes
+                "Bull Market": "Bull Market",
+                "Bear Market": "Bear Market",
+                "Sideways / High Volatility": "Sideways / High Volatility",
+                
+                // Calculator
+                "calc_title": "Investment Calculator",
+                "calc_placeholder": "Amount to invest (USD)",
+                
+                // Backtest Section
+                "backtest_title": "Backtest — Long or Flat (0.1% fee)",
+                
+                // News
+                "news_title": "📰 Latest News & Sentiment",
+                "news_empty": "No news found for this ticker.",
+                "sentiment_positive": "Positive",
+                "sentiment_negative": "Negative",
+                "sentiment_neutral": "Neutral",
+                
+                // Portfolio Optimizer
+                "opt_perf_title": "Optimal Portfolios Performance",
+                "opt_explanation": "This section optimizes capital allocation across multiple stocks. Enter tickers, simulation horizon in months, and optional weight bounds.",
+                "label_sim_months": "Simulation Months:",
+                "label_min_w": "Min Weight %:",
+                "label_max_w": "Max Weight %:",
+                
+                // Chart Titles
+                "chart_prediction_title": "Price Forecast for",
+                "chart_backtest_title": "Backtest Equity Curve for",
+                "chart_frontier_title": "Efficient Frontier (Risk vs Simulated Return)",
+                "chart_shap_title": "Top 5 SHAP Feature Contributions",
+                "chart_mc_title": "Monte Carlo Price Simulation (100 paths)",
+                "chart_corr_title": "Historical Correlation Matrix",
+                "chart_backtest_port_title": "Historical Backtest: Strategies vs Equal Weight (1/N)",
+                
+                // Axes
+                "axis_date": "Date",
+                "axis_price": "Price (USD)",
+                "axis_return_pct": "Return %",
+                "axis_shap_val": "SHAP Value (Impact on predicted log-return)",
+                "axis_risk_vol": "Expected Volatility (Risk) %",
+                "axis_exp_ret": "Expected Return %",
+                "axis_port_equity": "Portfolio Value (Base 1.0)",
+                
+                // Chart legends/traces
+                "trace_hist": "Historical Price",
+                "trace_pred_oos": "Predicted OOS",
+                "trace_actual_oos": "Actual OOS",
+                "trace_next_pred": "Next Prediction",
+                "trace_strategy": "Strategy",
+                "trace_bh": "Buy & Hold",
+                "trace_sim_port": "Simulated Portfolios",
+                "trace_max_sharpe": "Max Sharpe Portfolio",
+                "trace_min_vol": "Min Volatility Portfolio",
+            }
+        };
+
+        const plotLayout = {
+            paper_bgcolor: "transparent",
+            plot_bgcolor:  "transparent",
+            font:          { color: "#94a3b8", family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+            legend:        { bgcolor: "transparent", font: { color: "#f1f5f9" } },
+            margin:        { t: 60, b: 40, l: 55, r: 20 },
+            xaxis: {
+                gridcolor: "rgba(255, 255, 255, 0.04)",
+                linecolor: "rgba(255, 255, 255, 0.08)",
+                zerolinecolor: "rgba(255, 255, 255, 0.08)",
+                rangeslider: { visible: false },
+            },
+            yaxis: {
+                gridcolor: "rgba(255, 255, 255, 0.04)",
+                linecolor: "rgba(255, 255, 255, 0.08)",
+                zerolinecolor: "rgba(255, 255, 255, 0.08)",
+                autorange: true,
+                fixedrange: false,
+            },
+        };
+
+        // ── Components ───────────────────────────────────────────────────────
+
+        function MetricCard({ label, displayLabel, value, unit = "", color, onInfoClick, lang = "it" }) {
+            const tip = METRIC_TIPS[lang] ? METRIC_TIPS[lang][label] : null;
+            const display = displayLabel || label;
+
+            return (
+                <div className="card">
+                    <div className="card-label">
+                        {display}
+                        {tip && (
+                            <span
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onInfoClick(display, tip);
+                                }}
+                                className="info-icon"
+                                aria-label={`Info: ${display}`}
+                            >ⓘ</span>
+                        )}
+                    </div>
+                    <div className="card-value" style={{ color: color || "#f8fafc" }}>
+                        {value}
+                        <span className="card-unit">{unit}</span>
+                    </div>
+                </div>
+            );
+        }
+
+        function InfoModal({ isOpen, onClose, title, content }) {
+            if (!isOpen) return null;
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">{title}</h3>
+                            <button className="modal-close" onClick={onClose}>&times;</button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="modal-text">{content}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function NewsModal({ isOpen, onClose, newsList, lang = "it" }) {
+            if (!isOpen) return null;
+            
+            const getSentimentClass = (score) => {
+                if (score > 0.15) return "sentiment-badge sentiment-positive";
+                if (score < -0.15) return "sentiment-badge sentiment-negative";
+                return "sentiment-badge sentiment-neutral";
+            };
+
+            const getSentimentText = (score) => {
+                const prefix = score > 0.15 ? (lang === "it" ? "Positivo" : "Positive") 
+                             : score < -0.15 ? (lang === "it" ? "Negativo" : "Negative") 
+                             : (lang === "it" ? "Neutro" : "Neutral");
+                return score > 0.15 || score < -0.15 ? `${prefix} (${score.toFixed(2)})` : prefix;
+            };
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content news-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">📰 {lang === "it" ? "Ultime Notizie & Sentiment del Titolo" : "Latest Ticker News & Sentiment"}</h3>
+                            <button className="modal-close" onClick={onClose}>&times;</button>
+                        </div>
+                        <div className="modal-body">
+                            {newsList && newsList.length > 0 ? (
+                                <div className="news-list">
+                                    {newsList.map((item, idx) => (
+                                        <div className="news-item" key={idx}>
+                                            <a className="news-title-link" href={item.link} target="_blank" rel="noopener noreferrer">
+                                                {item.title}
+                                            </a>
+                                            <div className="news-meta">
+                                                <span>{item.publisher} • {item.date}</span>
+                                                <span className={getSentimentClass(item.sentiment)}>
+                                                    {getSentimentText(item.sentiment)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ textAlign: "center", color: "#64748b" }}>
+                                    {lang === "it" ? "Nessuna notizia trovata per questo titolo." : "No news found for this ticker."}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function PredictionChart({ pred, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!pred || !chartRef.current) return;
+
+                const futureDate = (() => {
+                    const d = new Date(pred.hist_dates[pred.hist_dates.length - 1]);
+                    d.setDate(d.getDate() + (pred.horizon_bars ?? 1));
+                    return d.toISOString().slice(0, 10);
+                })();
+
+                const sixMonthsAgo = (() => {
+                    const d = new Date(pred.hist_dates[pred.hist_dates.length - 1]);
+                    d.setMonth(d.getMonth() - 6);
+                    return d.toISOString().slice(0, 10);
+                })();
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+                const HORIZONS_TRANS = {
+                    it: { daily: "giornaliera", weekly: "settimanale", monthly: "mensile" },
+                    en: { daily: "daily", weekly: "weekly", monthly: "monthly" }
+                };
+
+                const traces = [
+                    {
+                        name: t("trace_hist"),
+                        x: pred.hist_dates,
+                        y: pred.hist_prices,
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: "#3b82f6", width: 2 },
+                    },
+                    {
+                        name: t("trace_pred_oos"),
+                        x: pred.wf_dates,
+                        y: pred.wf_pred_prices,
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: "#f59e0b", width: 1, dash: "dot" },
+                    },
+                    {
+                        name: t("trace_actual_oos"),
+                        x: pred.wf_dates,
+                        y: pred.wf_actual_prices,
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: "#a78bfa", width: 1 },
+                    },
+                    {
+                        name: t("trace_next_pred"),
+                        x: [pred.hist_dates[pred.hist_dates.length - 1], futureDate],
+                        y: [pred.last_price, pred.pred_price],
+                        type: "scatter",
+                        mode: "lines+markers",
+                        line: { color: "#10b981", width: 2.5, dash: "dash" },
+                        marker: { size: 8, color: "#10b981" },
+                    },
+                    {
+                        name: t("80% CI"),
+                        x: [futureDate, futureDate],
+                        y: [pred.ci_lower, pred.ci_upper],
+                        type: "scatter",
+                        mode: "lines+markers",
+                        line: { color: "#10b981", width: 0 },
+                        marker: { size: 10, symbol: "line-ew", color: "#10b981" },
+                        error_y: {
+                            type: "data",
+                            symmetric: false,
+                            array: [pred.ci_upper - pred.pred_price],
+                            arrayminus: [pred.pred_price - pred.ci_lower],
+                            visible: true,
+                            color: "rgba(16, 185, 129, 0.7)",
+                            thickness: 2,
+                            width: 6,
+                        },
+                    },
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    title: { 
+                        text: `${t("chart_prediction_title")} ${pred.ticker} (${HORIZONS_TRANS[lang][pred.horizon.toLowerCase()] || pred.horizon})`, 
+                        font: { color: "#f8fafc", size: 15, family: "'Plus Jakarta Sans', sans-serif", weight: 600 } 
+                    },
+                    xaxis: {
+                        ...plotLayout.xaxis,
+                        title: t("axis_date"),
+                        range: [sixMonthsAgo, futureDate],
+                    },
+                    yaxis: { ...plotLayout.yaxis, title: t("axis_price") },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [pred, lang]);
+
+            return (
+                <div className="chart-wrapper">
+                    <div ref={chartRef} style={{ width: "100%", height: 420 }}></div>
+                </div>
+            );
+        }
+
+        function SHAPChart({ shapValues, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!shapValues || !chartRef.current) return;
+
+                const sorted = Object.entries(shapValues).sort((a, b) => a[1] - b[1]);
+                const yNames = sorted.map(item => item[0]);
+                const xVals = sorted.map(item => item[1]);
+                const colors = xVals.map(v => v >= 0 ? "#10b981" : "#f43f5e");
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+
+                const traces = [
+                    {
+                        type: "bar",
+                        x: xVals,
+                        y: yNames,
+                        orientation: "h",
+                        marker: {
+                            color: colors,
+                            line: { width: 0 }
+                        }
+                    }
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    title: { 
+                        text: t("chart_shap_title"), 
+                        font: { color: "#f8fafc", size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: 600 } 
+                    },
+                    margin: { t: 50, b: 30, l: 120, r: 20 },
+                    xaxis: {
+                        ...plotLayout.xaxis,
+                        title: t("axis_shap_val"),
+                    },
+                    yaxis: {
+                        ...plotLayout.yaxis,
+                        tickfont: { size: 10, color: "#94a3b8" }
+                    }
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [shapValues, lang]);
+
+            return (
+                <div className="chart-wrapper">
+                    <div ref={chartRef} style={{ width: "100%", height: 260 }}></div>
+                </div>
+            );
+        }
+
+        function BacktestChart({ bt, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!bt || !chartRef.current) return;
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+                const HORIZONS_TRANS = {
+                    it: { daily: "giornaliero", weekly: "settimanale", monthly: "mensile" },
+                    en: { daily: "daily", weekly: "weekly", monthly: "monthly" }
+                };
+
+                const traces = [
+                    {
+                        name: t("trace_strategy"),
+                        x: bt.dates,
+                        y: bt.equity_curve.map((v) => (v - 1) * 100),
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: "#10b981", width: 2 },
+                        fill: "tozeroy",
+                        fillcolor: "rgba(16, 185, 129, 0.05)",
+                    },
+                    {
+                        name: t("trace_bh"),
+                        x: bt.dates,
+                        y: bt.bh_curve.map((v) => (v - 1) * 100),
+                        type: "scatter",
+                        mode: "lines",
+                        line: { color: "#3b82f6", width: 1.5, dash: "dot" },
+                    },
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    title: { 
+                        text: `${t("chart_backtest_title")} ${bt.ticker} (${HORIZONS_TRANS[lang][bt.horizon.toLowerCase()] || bt.horizon})`, 
+                        font: { color: "#f8fafc", size: 15, family: "'Plus Jakarta Sans', sans-serif", weight: 600 } 
+                    },
+                    xaxis: { ...plotLayout.xaxis, title: t("axis_date") },
+                    yaxis: { ...plotLayout.yaxis, title: t("axis_return_pct") },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [bt, lang]);
+
+            return (
+                <div className="chart-wrapper">
+                    <div ref={chartRef} style={{ width: "100%", height: 340 }}></div>
+                </div>
+            );
+        }
+
+        // ── Portfolio Optimization Components ───────────────────────────────
+
+        function EfficientFrontierChart({ data, onInfoClick, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!data || !chartRef.current) return;
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+
+                const traces = [
+                    {
+                        name: t("trace_sim_port"),
+                        x: data.sim_vols.map(v => v * 100),
+                        y: data.sim_returns.map(r => r * 100),
+                        mode: "markers",
+                        type: "scatter",
+                        marker: {
+                            size: 5,
+                            color: data.sim_sharpe,
+                            colorscale: "Viridis",
+                            showscale: true,
+                            colorbar: {
+                                title: t("Sharpe Ratio"),
+                                tickfont: { color: "#94a3b8" },
+                                titlefont: { color: "#94a3b8" }
+                            }
+                        }
+                    },
+                    {
+                        name: t("trace_max_sharpe"),
+                        x: [data.max_sharpe_perf[1] * 100],
+                        y: [data.max_sharpe_perf[0] * 100],
+                        mode: "markers",
+                        type: "scatter",
+                        marker: {
+                            size: 14,
+                            color: "#10b981",
+                            symbol: "star",
+                            line: { width: 2, color: "#ffffff" }
+                        }
+                    },
+                    {
+                        name: t("trace_min_vol"),
+                        x: [data.min_vol_perf[1] * 100],
+                        y: [data.min_vol_perf[0] * 100],
+                        mode: "markers",
+                        type: "scatter",
+                        marker: {
+                            size: 14,
+                            color: "#3b82f6",
+                            symbol: "diamond",
+                            line: { width: 2, color: "#ffffff" }
+                        }
+                    }
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    xaxis: { ...plotLayout.xaxis, title: t("axis_risk_vol") },
+                    yaxis: { ...plotLayout.yaxis, title: t("axis_exp_ret") },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [data, lang]);
+
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            return (
+                <div className="chart-wrapper" style={{ display: "flex", flexDirection: "column" }}>
+                    <div className="section-title" style={{ display: "flex", alignItems: "center", marginBottom: 12, marginTop: 4 }}>
+                        {t("chart_frontier_title")}
+                        <span onClick={() => onInfoClick(t("Efficient Frontier"), METRIC_TIPS[lang]["Efficient Frontier"])} className="info-icon" style={{ marginLeft: 8 }}>ⓘ</span>
+                    </div>
+                    <div ref={chartRef} style={{ width: "100%", height: 380 }}></div>
+                </div>
+            );
+        }
+
+        function MonteCarloChart({ pred, onInfoClick, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!pred || !pred.mc_paths || !chartRef.current) return;
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+
+                const paths = pred.mc_paths;
+                const pathLen = paths[0].length;
+                const xVals = Array.from({ length: pathLen }, (_, i) => i);
+
+                const medianPath = [];
+                for (let step = 0; step < pathLen; step++) {
+                    const stepPrices = paths.map(path => path[step]).sort((a, b) => a - b);
+                    medianPath.push(stepPrices[Math.floor(stepPrices.length / 2)]);
+                }
+
+                const traces = paths.map((path) => ({
+                    x: xVals,
+                    y: path,
+                    mode: "lines",
+                    type: "scatter",
+                    line: { color: "rgba(59, 130, 246, 0.07)", width: 1.2 },
+                    hoverinfo: "none",
+                    showlegend: false,
+                }));
+
+                traces.push({
+                    x: xVals,
+                    y: medianPath,
+                    mode: "lines",
+                    type: "scatter",
+                    line: { color: "#3b82f6", width: 3 },
+                    name: lang === "it" ? "Traiettoria Mediana" : "Median Path",
+                    hoverinfo: "x+y",
+                    showlegend: true,
+                });
+
+                const layout = {
+                    ...plotLayout,
+                    title: {
+                        text: t("chart_mc_title"),
+                        font: { color: "#f8fafc", size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: 600 }
+                    },
+                    xaxis: {
+                        ...plotLayout.xaxis,
+                        title: lang === "it" ? "Giorni di Simulazione Futuri" : "Future Simulation Days",
+                        tickmode: "linear",
+                        dtick: pathLen > 15 ? 5 : 2
+                    },
+                    yaxis: {
+                        ...plotLayout.yaxis,
+                        title: t("axis_price"),
+                    },
+                    margin: { t: 50, b: 50, l: 60, r: 20 },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [pred, lang]);
+
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            return (
+                <div className="chart-wrapper" style={{ display: "flex", flexDirection: "column" }}>
+                    <div className="section-title" style={{ display: "flex", alignItems: "center", marginBottom: 12, marginTop: 4 }}>
+                        {t("chart_mc_title")}
+                        <span onClick={() => onInfoClick(t("Monte Carlo Price Simulation"), METRIC_TIPS[lang]["Monte Carlo Price Simulation"])} className="info-icon" style={{ marginLeft: 8 }}>ⓘ</span>
+                    </div>
+                    <div ref={chartRef} style={{ width: "100%", height: 320 }}></div>
+                </div>
+            );
+        }
+
+        function CorrelationHeatmapChart({ tickers, corrMatrix, onInfoClick, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!corrMatrix || !tickers || !chartRef.current) return;
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+
+                const textLabels = corrMatrix.map((row) => row.map((val) => val.toFixed(2)));
+
+                const traces = [
+                    {
+                        x: tickers,
+                        y: tickers,
+                        z: corrMatrix,
+                        type: "heatmap",
+                        colorscale: "RdBu",
+                        zmin: -1,
+                        zmax: 1,
+                        reversescale: true,
+                        text: textLabels,
+                        texttemplate: "%{text}",
+                        textfont: { color: "#ffffff", size: 12, family: "'Plus Jakarta Sans', sans-serif" },
+                        showscale: true,
+                        colorbar: {
+                            tickfont: { color: "#94a3b8" }
+                        }
+                    }
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    title: {
+                        text: t("chart_corr_title"),
+                        font: { color: "#f8fafc", size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: 600 }
+                    },
+                    xaxis: {
+                        ...plotLayout.xaxis,
+                        tickfont: { color: "#94a3b8" }
+                    },
+                    yaxis: {
+                        ...plotLayout.yaxis,
+                        tickfont: { color: "#94a3b8" },
+                        autorange: "reversed"
+                    },
+                    margin: { t: 50, b: 40, l: 60, r: 20 },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [tickers, corrMatrix, lang]);
+
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            return (
+                <div className="chart-wrapper" style={{ display: "flex", flexDirection: "column" }}>
+                    <div className="section-title" style={{ display: "flex", alignItems: "center", marginBottom: 12, marginTop: 4 }}>
+                        {t("chart_corr_title")}
+                        <span onClick={() => onInfoClick(t("Historical Correlation Matrix"), METRIC_TIPS[lang]["Historical Correlation Matrix"])} className="info-icon" style={{ marginLeft: 8 }}>ⓘ</span>
+                    </div>
+                    <div ref={chartRef} style={{ width: "100%", height: 320 }}></div>
+                </div>
+            );
+        }
+
+        function PortfolioBacktestChart({ data, onInfoClick, lang = "it" }) {
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!data || !data.port_dates || !chartRef.current) return;
+
+                const t = (key) => TRANSLATIONS[lang][key] || key;
+
+                const traces = [
+                    {
+                        name: t("trace_max_sharpe_port"),
+                        x: data.port_dates,
+                        y: data.max_sharpe_equity,
+                        mode: "lines",
+                        type: "scatter",
+                        line: { color: "#10b981", width: 2.5 }
+                    },
+                    {
+                        name: t("trace_min_vol_port"),
+                        x: data.port_dates,
+                        y: data.min_vol_equity,
+                        mode: "lines",
+                        type: "scatter",
+                        line: { color: "#3b82f6", width: 2.5 }
+                    },
+                    {
+                        name: t("trace_equal_port"),
+                        x: data.port_dates,
+                        y: data.equal_w_equity,
+                        mode: "lines",
+                        type: "scatter",
+                        line: { color: "#fbbf24", width: 2, dash: "dash" }
+                    }
+                ];
+
+                const layout = {
+                    ...plotLayout,
+                    title: {
+                        text: t("chart_backtest_port_title"),
+                        font: { color: "#f8fafc", size: 14, family: "'Plus Jakarta Sans', sans-serif", weight: 600 }
+                    },
+                    xaxis: {
+                        ...plotLayout.xaxis,
+                        title: t("axis_date"),
+                        tickfont: { size: 10, color: "#94a3b8" }
+                    },
+                    yaxis: {
+                        ...plotLayout.yaxis,
+                        title: t("axis_port_equity"),
+                        tickformat: ".2f"
+                    },
+                    margin: { t: 50, b: 50, l: 60, r: 20 },
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [data, lang]);
+
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            return (
+                <div className="chart-wrapper" style={{ display: "flex", flexDirection: "column" }}>
+                    <div className="section-title" style={{ display: "flex", alignItems: "center", marginBottom: 12, marginTop: 4 }}>
+                        {t("chart_backtest_port_title")}
+                        <span onClick={() => onInfoClick(t("Historical Portfolio Backtest"), METRIC_TIPS[lang]["Historical Portfolio Backtest"])} className="info-icon" style={{ marginLeft: 8 }}>ⓘ</span>
+                    </div>
+                    <div ref={chartRef} style={{ width: "100%", height: 320 }}></div>
+                </div>
+            );
+        }
+
+        function AllocationChart({ tickers, weights, title, onInfoClick, lang = "it", regimes = {} }) {
+            const chartRef = useRef(null);
+            const COLORS = ["#3b82f6", "#10b981", "#fbbf24", "#f43f5e", "#a78bfa", "#f472b6", "#2dd4bf"];
+
+            useEffect(() => {
+                if (!weights || !chartRef.current) return;
+
+                const filtered = weights.map((w, idx) => ({ ticker: tickers[idx], weight: w })).filter(item => item.weight > 0.001);
+                const labels = filtered.map(item => item.ticker);
+                const values = filtered.map(item => item.weight * 100);
+
+                const traces = [
+                    {
+                        values: values,
+                        labels: labels,
+                        type: "pie",
+                        hole: 0.5,
+                        marker: {
+                            colors: COLORS
+                        },
+                        textinfo: "none",
+                        hoverinfo: "label+percent"
+                    }
+                ];
+
+                const layout = {
+                    paper_bgcolor: "transparent",
+                    plot_bgcolor:  "transparent",
+                    font:          { color: "#94a3b8", family: "'Plus Jakarta Sans', sans-serif", size: 11 },
+                    margin:        { t: 40, b: 20, l: 20, r: 80 },
+                    showlegend:    true,
+                    legend: {
+                        orientation: "v",
+                        x: 1.05,
+                        y: 0.5,
+                        xanchor: "left",
+                        yanchor: "middle",
+                        font: { color: "#94a3b8", size: 11 }
+                    }
+                };
+
+                Plotly.newPlot(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+            }, [weights, tickers, lang]);
+
+            const getRegimeClass = (regime) => {
+                if (regime === "Bull Market") return "regime-badge regime-bull";
+                if (regime === "Bear Market") return "regime-badge regime-bear";
+                return "regime-badge regime-sideways";
+            };
+
+            const filteredAllocations = weights
+                ? weights.map((w, idx) => ({ 
+                    ticker: tickers[idx], 
+                    weight: w, 
+                    color: COLORS[idx % COLORS.length],
+                    regime: regimes[tickers[idx]] || ""
+                  })).filter(item => item.weight > 0.001)
+                : [];
+
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            return (
+                <div className="chart-wrapper" style={{ display: "flex", flexDirection: "column", height: "auto" }}>
+                    <div className="section-title" style={{ display: "flex", alignItems: "center", marginBottom: 8, fontSize: "14px" }}>
+                        {t(title)}
+                        <span onClick={() => onInfoClick(t(title), METRIC_TIPS[lang][title])} className="info-icon" style={{ marginLeft: 8 }}>ⓘ</span>
+                    </div>
+                    <div ref={chartRef} style={{ width: "100%", height: 240 }}></div>
+                    {filteredAllocations.length > 0 && (
+                        <div className="allocation-list">
+                            {filteredAllocations.map((item) => (
+                                <div key={item.ticker} className="allocation-item" style={{ borderLeft: '4px solid ' + item.color, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <span className="allocation-ticker">{item.ticker}</span>
+                                        {item.regime && (
+                                            <span className={getRegimeClass(item.regime)} style={{ fontSize: "10px", padding: "1px 5px", borderRadius: "3px" }}>
+                                                {t(item.regime)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="allocation-value">{(item.weight * 100).toFixed(2)}%</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function CustomPortfolioSimulator({ optData, lang, onInfoClick }) {
+            const [tickersInput, setTickersInput] = useState("AAPL, MSFT, TSLA, AMZN");
+            const [months, setMonths] = useState(12);
+            const [weights, setWeights] = useState({ AAPL: "25", MSFT: "25", TSLA: "25", AMZN: "25" });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+            const [customRes, setCustomRes] = useState(null);
+            const [invAmount, setInvAmount] = useState("");
+
+            // Sync with optData if optData becomes available from Tab 1
+            useEffect(() => {
+                if (optData && optData.tickers && optData.tickers.length > 0) {
+                    setTickersInput(optData.tickers.join(", "));
+                    const initial = {};
+                    const equal = (100 / optData.tickers.length).toFixed(1);
+                    optData.tickers.forEach(tk => {
+                        initial[tk] = equal;
+                    });
+                    setWeights(initial);
+                }
+            }, [optData]);
+
+            // When user edits the tickers input string
+            const updateTickersFromInput = (raw) => {
+                setTickersInput(raw);
+                const list = raw.split(",").map(t => t.trim().toUpperCase()).filter(Boolean);
+                if (list.length === 0) return;
+                const equal = (100 / list.length).toFixed(1);
+                setWeights(prev => {
+                    const next = {};
+                    list.forEach(tk => {
+                        next[tk] = prev[tk] !== undefined ? prev[tk] : equal;
+                    });
+                    return next;
+                });
+            };
+
+            const handleWeightChange = (tk, val) => {
+                setWeights(prev => ({ ...prev, [tk]: val }));
+            };
+
+            const tickerList = Object.keys(weights);
+            const sumWeights = Object.values(weights).reduce((acc, curr) => acc + (parseFloat(curr) || 0), 0);
+
+            const evaluateCustom = async () => {
+                if (tickerList.length === 0) return;
+                setLoading(true);
+                setError(null);
+
+                const tickersStr = tickerList.join(",");
+                const weightsNorm = tickerList.map(tk => ((parseFloat(weights[tk]) || 0) / 100.0).toFixed(4)).join(",");
+
+                try {
+                    const res = await fetch(`${API_BASE}/custom_portfolio?tickers=${tickersStr}&weights=${weightsNorm}&months=${months}`);
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({ detail: "Custom portfolio evaluation failed" }));
+                        throw errData;
+                    }
+                    const data = await res.json();
+                    setCustomRes(data);
+                } catch (e) {
+                    setError(typeof parseErrorMessage === 'function' ? parseErrorMessage(e) : (e.message || String(e)));
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const calc = (() => {
+                if (!customRes || !invAmount || isNaN(Number(invAmount))) return null;
+                const amt = Number(invAmount);
+                const retMult = 1 + (customRes.exp_return_pct / 100.0);
+                const volMult = (customRes.volatility_pct / 100.0) * 1.28;
+                return {
+                    expected: (amt * retMult).toFixed(2),
+                    best: (amt * (retMult + volMult)).toFixed(2),
+                    worst: (amt * Math.max(0, retMult - volMult)).toFixed(2),
+                };
+            })();
+
+            const getScoreColor = (score) => {
+                if (score >= 85) return "#10b981";
+                if (score >= 60) return "#fbbf24";
+                return "#f43f5e";
+            };
+
+            return (
+                <div className="chart-wrapper" style={{ padding: "24px", background: "rgba(30, 41, 59, 0.6)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                    <div className="section-title" style={{ fontSize: "18px", color: "#38bdf8", marginBottom: 6 }}>
+                        🎛️ {lang === "it" ? "Simulatore di Portafoglio Personalizzato" : "Custom Portfolio Simulator"}
+                    </div>
+                    <div style={{ fontSize: "13px", color: "#94a3b8", marginBottom: 20 }}>
+                        {lang === "it"
+                            ? "Inserisci i ticker ed imposta le percentuali di capitale (%) per ciascun titolo. L'IA calcolerà il rendimento atteso, il rischio globale ed il punteggio di efficienza."
+                            : "Enter tickers and custom percentage weights (%) for each stock. The AI will compute expected return, risk, and efficiency score."}
+                    </div>
+
+                    {/* Top Controls: Ticker input & Months */}
+                    <div className="controls" style={{ flexWrap: "wrap", gap: "12px", marginBottom: 12, background: "rgba(15, 23, 42, 0.5)", padding: 16, borderRadius: 10 }}>
+                        <div style={{ flexGrow: 1, minWidth: 280 }}>
+                            <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: 4, fontWeight: "bold" }}>
+                                {lang === "it" ? "Titoli del Portafoglio" : "Portfolio Tickers"}
+                            </label>
+                            <input
+                                className="input-field"
+                                value={tickersInput}
+                                onChange={(e) => updateTickersFromInput(e.target.value)}
+                                placeholder="AAPL, MSFT, TSLA, AMZN"
+                                style={{ width: "100%", fontSize: "14px" }}
+                            />
+                        </div>
+                        <div style={{ minWidth: 120 }}>
+                            <label style={{ display: "block", fontSize: "12px", color: "#94a3b8", marginBottom: 4, fontWeight: "bold" }}>
+                                {lang === "it" ? "Mesi Simulazione" : "Simulation Months"}
+                            </label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                min="1"
+                                max="240"
+                                value={months}
+                                onChange={(e) => setMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                                style={{ textAlign: "center", width: "100%", fontSize: "14px" }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* International / Extra-USA Stocks Guide Box */}
+                    <div className="portfolio-explanation" style={{ marginBottom: "16px", borderLeft: "4px solid #0ea5e9", background: "rgba(15, 23, 42, 0.5)" }}>
+                        <details>
+                            <summary style={{ cursor: "pointer", fontWeight: "bold", color: "#38bdf8", outline: "none" }}>
+                                🌍 {lang === "it" ? "Guida ai Titoli Extra-USA (Italia .MI, Europa .DE/.PA, ADR)" : "Guide for International Stocks (Italy .MI, Europe .DE/.PA, ADR)"}
+                            </summary>
+                            <div style={{ marginTop: "10px", fontSize: "13px", lineHeight: "1.6", display: "flex", flexDirection: "column", gap: "6px", color: "#cbd5e1" }}>
+                                <div>
+                                    <strong>🔹 {lang === "it" ? "Suffissi Borse Europee:" : "European Exchange Suffixes:"}</strong>{" "}
+                                    <code>.MI</code> (Milano - es. <code>ENEL.MI, ISP.MI, SWDA.MI</code>), <code>.DE</code> (Germania - es. <code>SAP.DE, VWCE.DE</code>), <code>.PA</code> (Parigi - es. <code>MC.PA</code>), <code>.L</code> (Londra - es. <code>SHEL.L</code>).
+                                </div>
+                                <div>
+                                    <strong>🔹 {lang === "it" ? "ADR su Borse USA:" : "US Listed ADRs:"}</strong>{" "}
+                                    <code>ASML, TSM, NVO, BABA, SAP, RACE, SONY, TM</code>.
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    {/* Ticker Weight Percentage Cards */}
+                    {tickerList.length > 0 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+                            {tickerList.map((tk) => (
+                                <div key={tk} style={{ display: "flex", flexDirection: "column", gap: "6px", background: "rgba(15, 23, 42, 0.7)", padding: "12px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                                    <label style={{ fontSize: "13px", fontWeight: "bold", color: "#38bdf8" }}>{tk} (%)</label>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        min="0"
+                                        max="100"
+                                        step="0.5"
+                                        value={weights[tk] || ""}
+                                        onChange={(e) => handleWeightChange(tk, e.target.value)}
+                                        style={{ textAlign: "center", fontSize: "15px", fontWeight: "bold" }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+                        <div style={{ fontSize: "14px", fontWeight: "600", color: Math.abs(sumWeights - 100) < 0.1 ? "#10b981" : "#fbbf24" }}>
+                            {lang === "it" ? `Totale Pesi: ${sumWeights.toFixed(1)}%` : `Total Weight: ${sumWeights.toFixed(1)}%`}
+                            {Math.abs(sumWeights - 100) >= 0.1 && (
+                                <span style={{ marginLeft: 8, fontSize: "12px", fontWeight: "normal", color: "#94a3b8" }}>
+                                    ({lang === "it" ? "verrà automaticamente normalizzato al 100%" : "will automatically normalize to 100%"})
+                                </span>
+                            )}
+                        </div>
+                        <button className="btn btn-primary" onClick={evaluateCustom} disabled={loading} style={{ background: "linear-gradient(135deg, #0284c7, #2563eb)", padding: "12px 24px", fontSize: "15px" }}>
+                            {loading ? (lang === "it" ? "Calcolo in corso..." : "Evaluating...") : (lang === "it" ? "🔍 Calcola Portafoglio Personale" : "🔍 Evaluate Custom Portfolio")}
+                        </button>
+                    </div>
+
+                    {loading && (
+                        <div style={{ padding: "30px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", marginTop: "16px" }}>
+                            <div className="spinner" style={{ width: 36, height: 36, border: "4px solid rgba(255,255,255,0.1)", borderTopColor: "#38bdf8", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></div>
+                            <div style={{ fontSize: "14px", color: "#94a3b8" }}>
+                                {lang === "it" ? "Calcolo delle metriche del tuo portafoglio in corso..." : "Evaluating custom portfolio metrics..."}
+                            </div>
+                        </div>
+                    )}
+
+                    {error && <div className="error-box" style={{ marginTop: 16 }}>⚠ {error}</div>}
+
+                    {customRes && (
+                        <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255, 255, 255, 0.1)" }}>
+                            <div className="section-title" style={{ fontSize: "15px", color: "#f8fafc", marginBottom: 12 }}>
+                                {lang === "it" ? "Risultati della Tua Allocazione" : "Custom Allocation Results"}
+                            </div>
+                            <div className="metrics-row">
+                                <MetricCard label="Expected Return" displayLabel={lang === "it" ? "Rendimento Atteso Custom" : "Custom Expected Return"} value={`${customRes.exp_return_pct >= 0 ? "+" : ""}${customRes.exp_return_pct}%`} color={customRes.exp_return_pct >= 0 ? "#10b981" : "#f43f5e"} onInfoClick={onInfoClick} lang={lang} />
+                                <MetricCard label="Portfolio Risk" displayLabel={lang === "it" ? "Rischio Custom" : "Custom Risk"} value={`${customRes.volatility_pct}%`} color="#f43f5e" onInfoClick={onInfoClick} lang={lang} />
+                                <MetricCard label="Sharpe Ratio" displayLabel="Sharpe Ratio Custom" value={customRes.sharpe_ratio} color={customRes.sharpe_ratio > 0 ? "#10b981" : "#f43f5e"} onInfoClick={onInfoClick} lang={lang} />
+                                <div className="card">
+                                    <div className="card-label">
+                                        {lang === "it" ? "Punteggio Efficienza" : "Efficiency Score"}
+                                    </div>
+                                    <div style={{ fontSize: "20px", fontWeight: "bold", marginTop: 4, color: getScoreColor(customRes.efficiency_score) }}>
+                                        {customRes.efficiency_score}%
+                                        <span style={{ fontSize: "11px", fontWeight: "normal", color: "#94a3b8", marginLeft: 6 }}>
+                                            ({lang === "it" ? "vs Max Sharpe" : "vs Max Sharpe"})
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Custom Investment Calculator */}
+                            <div className="calc-row" style={{ marginTop: 20, background: "rgba(15, 23, 42, 0.6)", padding: 20, borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.08)" }}>
+                                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#f8fafc", marginBottom: 12 }}>
+                                    💵 {lang === "it" ? "Calcolatore di Investimento per la tua Combinazione" : "Investment Calculator for Your Custom Mix"}
+                                </div>
+                                <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                                    <input
+                                        className="input-field"
+                                        type="number"
+                                        min="0"
+                                        placeholder={lang === "it" ? "Inserisci importo ($)" : "Enter amount ($)"}
+                                        value={invAmount}
+                                        onChange={(e) => setInvAmount(e.target.value)}
+                                        style={{ maxWidth: 220, fontSize: "15px" }}
+                                    />
+                                    {calc && (
+                                        <div className="metrics-row" style={{ flexGrow: 1, marginTop: 0 }}>
+                                            <MetricCard label="Expected value" displayLabel={lang === "it" ? "Valore Atteso Custom" : "Expected Custom Value"} value={`$${Number(calc.expected).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#10b981" onInfoClick={onInfoClick} lang={lang} />
+                                            <MetricCard label="Best case (CI)" displayLabel={lang === "it" ? "Caso Migliore Custom" : "Best Custom Case"} value={`$${Number(calc.best).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#34d399" onInfoClick={onInfoClick} lang={lang} />
+                                            <MetricCard label="Worst case (CI)" displayLabel={lang === "it" ? "Caso Peggiore Custom" : "Worst Custom Case"} value={`$${Number(calc.worst).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#f43f5e" onInfoClick={onInfoClick} lang={lang} />
+                                        </div>
+                                    )}
+                                </div>
+                                {calc && Number(invAmount) > 0 && (
+                                    <div style={{ marginTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 14 }}>
+                                        <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: 10 }}>
+                                            🛒 {lang === "it" ? `Ripartizione Spesa Ordini per $${Number(invAmount).toLocaleString()}:` : `Order Purchase Breakdown for $${Number(invAmount).toLocaleString()}:`}
+                                        </div>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                                            {tickerList.map((tk) => {
+                                                const wPct = parseFloat(weights[tk]) || 0;
+                                                const amtTk = (Number(invAmount) * (wPct / (sumWeights || 100))).toFixed(2);
+                                                return (
+                                                    <div key={tk} style={{ background: "rgba(30, 41, 59, 0.7)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <div>
+                                                            <span style={{ fontWeight: "700", color: "#f8fafc", fontSize: "14px" }}>{tk}</span>
+                                                            <span style={{ fontSize: "12px", color: "#64748b", marginLeft: 6 }}>({wPct}%)</span>
+                                                        </div>
+                                                        <div style={{ fontWeight: "700", color: "#38bdf8", fontSize: "15px" }}>
+                                                            ${Number(amtTk).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // ── Main App ─────────────────────────────────────────────────────────
+
+        function App() {
+            const [activeTab, setActiveTab] = useState("portfolio");
+            const [lang,      setLang]      = useState("it");
+            
+            const t = (key) => TRANSLATIONS[lang][key] || key;
+
+            // Portfolio Tab States
+            const [portTickers, setPortTickers] = useState("AAPL, MSFT, TSLA, AMZN");
+            const [portMonths,  setPortMonths]  = useState(12);
+            const [portMinW,    setPortMinW]    = useState(0);
+            const [portMaxW,    setPortMaxW]    = useState(100);
+            const [portLoading, setPortLoading] = useState(false);
+            const [portError,   setPortError]   = useState(null);
+            const [optData,     setOptData]     = useState(null);
+
+            // Modal States
+            const [modalOpen, setModalOpen] = useState(false);
+            const [modalTitle, setModalTitle] = useState("");
+            const [modalContent, setModalContent] = useState("");
+
+            const openModal = (label, tip) => {
+                setModalTitle(label);
+                setModalContent(tip);
+                setModalOpen(true);
+            };
+
+            const parseErrorMessage = (err) => {
+                if (!err) return "Errore sconosciuto";
+                if (typeof err === "string") return err;
+                if (err.detail) {
+                    if (typeof err.detail === "string") return err.detail;
+                    if (Array.isArray(err.detail)) {
+                        return err.detail.map(d => d.msg || (typeof d === "string" ? d : JSON.stringify(d))).join("; ");
+                    }
+                    if (typeof err.detail === "object") return JSON.stringify(err.detail);
+                }
+                if (err.message) {
+                    if (typeof err.message === "string") return err.message;
+                    return JSON.stringify(err.message);
+                }
+                return String(err);
+            };
+
+            const runPortfolioOptimization = async () => {
+                if (!portTickers.trim()) return;
+                setPortLoading(true);
+                setPortError(null);
+                setOptData(null);
+
+                try {
+                    const res = await fetch(`${API_BASE}/optimize?tickers=${portTickers}&months=${portMonths}&min_w=${portMinW / 100.0}&max_w=${portMaxW / 100.0}`);
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({ detail: "Optimization request failed" }));
+                        throw errData;
+                    }
+                    const data = await res.json();
+                    setOptData(data);
+                } catch (e) {
+                    setPortError(parseErrorMessage(e));
+                } finally {
+                    setPortLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    {/* Top utility row - Language Switcher */}
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 12 }}>
+                        <div className="lang-switch-container">
+                            <span className={`lang-label ${lang === "it" ? "active" : ""}`} onClick={() => setLang("it")}>IT</span>
+                            <label className="switch">
+                                <input 
+                                    type="checkbox" 
+                                    checked={lang === "en"} 
+                                    onChange={(e) => setLang(e.target.checked ? "en" : "it")}
+                                    aria-label="Language Toggle"
+                                />
+                                <span className="slider"></span>
+                            </label>
+                            <span className={`lang-label ${lang === "en" ? "active" : ""}`} onClick={() => setLang("en")}>EN</span>
+                        </div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="header">
+                        <span className="logo">📈</span>
+                        <div className="header-text">
+                            <h1 className="title">{t("title")}</h1>
+                            <span className="subtitle">{t("subtitle")}</span>
+                        </div>
+                    </div>
+
+                    {/* Navigation Tabs */}
+                    <div className="tabs">
+                        <button 
+                            className={`tab-btn ${activeTab === "portfolio" ? "active" : ""}`}
+                            onClick={() => setActiveTab("portfolio")}
+                        >
+                            {t("tab_optimizer")}
+                        </button>
+                        <button 
+                            className={`tab-btn ${activeTab === "simulator" ? "active" : ""}`}
+                            onClick={() => setActiveTab("simulator")}
+                        >
+                            {t("tab_simulator")}
+                        </button>
+                    </div>
+
+                    {/* Tab 1: Portfolio Optimizer */}
+                    {activeTab === "portfolio" && (
+                        <div>
+                            {/* Controls */}
+                            <div className="controls" style={{ flexWrap: "wrap", gap: "12px" }}>
+                                <input
+                                    className="input-field"
+                                    value={portTickers}
+                                    onChange={(e) => setPortTickers(e.target.value)}
+                                    placeholder={t("placeholder_tickers")}
+                                    style={{ maxWidth: 360, flexGrow: 1 }}
+                                />
+                                <div className="control-item" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>{t("label_sim_months")}</span>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        min="1"
+                                        max="36"
+                                        value={portMonths}
+                                        onChange={(e) => setPortMonths(Math.max(1, parseInt(e.target.value) || 1))}
+                                        style={{ maxWidth: 60, textAlign: "center" }}
+                                    />
+                                </div>
+                                <div className="control-item" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>{t("label_min_w")}</span>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        min="0"
+                                        max="100"
+                                        value={portMinW}
+                                        onChange={(e) => setPortMinW(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+                                        style={{ maxWidth: 60, textAlign: "center" }}
+                                    />
+                                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>%</span>
+                                </div>
+                                <div className="control-item" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>{t("label_max_w")}</span>
+                                    <input
+                                        type="number"
+                                        className="input-field"
+                                        min="0"
+                                        max="100"
+                                        value={portMaxW}
+                                        onChange={(e) => setPortMaxW(Math.max(0, Math.min(100, parseInt(e.target.value) || 100)))}
+                                        style={{ maxWidth: 60, textAlign: "center" }}
+                                    />
+                                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>%</span>
+                                </div>
+                                <button className="btn btn-primary" onClick={runPortfolioOptimization} disabled={portLoading}>
+                                    {portLoading ? t("btn_optimizing") : t("btn_optimize")}
+                                </button>
+                            </div>
+
+                            {/* Simple Description Box */}
+                            <div className="portfolio-explanation">
+                                💡 {t("opt_explanation")}
+                            </div>
+
+                            {/* Market Regime Guide Box */}
+                            <div className="portfolio-explanation" style={{ marginTop: "10px", borderLeft: "4px solid #6366f1" }}>
+                                <details>
+                                    <summary style={{ cursor: "pointer", fontWeight: "bold", color: "#818cf8", outline: "none" }}>
+                                        📖 {lang === "it" ? "Guida ai Regimi di Mercato (GMM)" : "Market Regimes Guide (GMM)"}
+                                    </summary>
+                                    <div style={{ marginTop: "10px", fontSize: "13px", lineHeight: "1.5", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                        <div>
+                                            🟢 <strong>{lang === "it" ? "Bull Market (Stabilità/Basi Solide)" : "Bull Market"}:</strong>{" "}
+                                            {lang === "it"
+                                                ? "Rappresenta una tendenza positiva stabile con bassa volatilità. Il modello ha identificato fondamenta solide per la crescita di questo titolo."
+                                                : "Represents a structural positive trend with low volatility. The model has identified solid foundations for this asset's growth."}
+                                        </div>
+                                        <div>
+                                            🔴 <strong>{lang === "it" ? "Bear Market (Ribassista)" : "Bear Market"}:</strong>{" "}
+                                            {lang === "it"
+                                                ? "Rappresenta una tendenza ribassista strutturale. Il modello consiglia massima cautela o di evitare l'asset."
+                                                : "Represents a structural negative trend. The model advises maximum caution or avoiding the asset."}
+                                        </div>
+                                        <div>
+                                            🟡 <strong>{lang === "it" ? "Sideways / High Volatility (Instabile/Laterale)" : "Sideways / High Volatility"}:</strong>{" "}
+                                            {lang === "it"
+                                                ? "Rappresenta un mercato congestionato, choppy o altamente oscillatorio senza una chiara direzione. C'è un elevato rischio di falsi segnali (whipsaws) e le previsioni sono meno affidabili."
+                                                : "Represents a congested, choppy, or highly oscillatory market without a clear direction. High risk of whipsaws, and predictions are less reliable."}
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+
+                            {/* International / Extra-USA Stocks Guide Box */}
+                            <div className="portfolio-explanation" style={{ marginTop: "10px", borderLeft: "4px solid #0ea5e9" }}>
+                                <details>
+                                    <summary style={{ cursor: "pointer", fontWeight: "bold", color: "#38bdf8", outline: "none" }}>
+                                        🌍 {lang === "it" ? "Guida ai Titoli Extra-USA & Borse Internazionali (Suffissi & Valute)" : "Guide for International & Extra-US Stocks (Suffixes & Currencies)"}
+                                    </summary>
+                                    <div style={{ marginTop: "10px", fontSize: "13px", lineHeight: "1.6", display: "flex", flexDirection: "column", gap: "8px", color: "#cbd5e1" }}>
+                                        <div>
+                                            <strong>🔹 {lang === "it" ? "Come inserire titoli europei e mondiali (Suffissi Yahoo Finance):" : "How to enter European & Global tickers (Yahoo Finance suffixes):"}</strong>
+                                            <div style={{ marginTop: "4px", paddingLeft: "8px" }}>
+                                                • 🇮🇹 <strong>Borsa Italiana (Milano):</strong> {lang === "it" ? "Aggiungi" : "Add"} <code>.MI</code> (es. <code>ENEL.MI</code>, <code>ISP.MI</code>, <code>UCG.MI</code>, <code>RACE.MI</code>, <code>SWDA.MI</code>)<br />
+                                                • 🇩🇪 <strong>Germania (XETRA):</strong> {lang === "it" ? "Aggiungi" : "Add"} <code>.DE</code> (es. <code>SAP.DE</code>, <code>SIE.DE</code>, <code>BMW.DE</code>, <code>VWCE.DE</code>)<br />
+                                                • 🇫🇷 <strong>Francia (Parigi):</strong> {lang === "it" ? "Aggiungi" : "Add"} <code>.PA</code> (es. <code>MC.PA</code> - LVMH, <code>OR.PA</code>, <code>TTE.PA</code>)<br />
+                                                • 🇳🇱 <strong>Olanda:</strong> <code>.AS</code> (es. <code>ASML.AS</code>) | 🇬🇧 <strong>Regno Unito:</strong> <code>.L</code> (es. <code>SHEL.L</code>) | 🇨🇭 <strong>Svizzera:</strong> <code>.SW</code> (es. <code>NESN.SW</code>)
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong>🔹 {lang === "it" ? "Titoli Esteri quotati a New York (ADR):" : "Foreign stocks listed in NY (ADR):"}</strong>
+                                            <div style={{ marginTop: "4px", paddingLeft: "8px" }}>
+                                                {lang === "it"
+                                                    ? "Moltissime multinazionali mondiali sono negoziabili direttamente a Wall Street in dollari con ticker semplici: ASML, TSM (Taiwan Semi), NVO (Novo Nordisk), BABA (Alibaba), SAP, RACE (Ferrari), SONY, TM (Toyota)."
+                                                    : "Many global leaders trade directly on Wall Street in USD with standard tickers: ASML, TSM, NVO, BABA, SAP, RACE, SONY, TM."}
+                                            </div>
+                                        </div>
+                                        <div style={{ background: "rgba(14, 165, 233, 0.1)", padding: "8px 12px", borderRadius: "6px", border: "1px solid rgba(14, 165, 233, 0.2)" }}>
+                                            💡 <strong>{lang === "it" ? "Nota sul Cambio Valutario & Calendari Festivi:" : "Note on FX Currency & Trading Holidays:"}</strong>{" "}
+                                            {lang === "it"
+                                                ? "I titoli con suffisso estero vengono analizzati nella loro valuta di borsa (es. EUR per .MI/.DE, USD per azioni USA). L'algoritmo allinea automaticamente i calendari festivi delle diverse borse."
+                                                : "Foreign tickers are analyzed in their local exchange currency (EUR for .MI/.DE, USD for US stocks). The algorithm automatically aligns international trading calendars."}
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+
+                            {/* Error */}
+                            {portError && <div className="error-box">⚠ {portError}</div>}
+
+                            {/* Sideways / Bear Regimes Warning Banner for Portfolio */}
+                            {optData && optData.asset_regimes && Object.values(optData.asset_regimes).some(r => r === "Sideways / High Volatility" || r === "Bear Market") && (
+                                <div className="warning-box" style={{ marginBottom: "20px", borderLeft: "4px solid #f59e0b", backgroundColor: "rgba(245, 158, 11, 0.1)", padding: "12px", borderRadius: "4px", color: "#fef3c7" }}>
+                                    <span>
+                                        <strong>⚠ {lang === "it" ? "Attenzione" : "Warning"}:</strong>{" "}
+                                        {lang === "it"
+                                            ? "Alcuni titoli nel portafoglio si trovano in un regime instabile o ribassista:"
+                                            : "Some assets in your portfolio are in an unstable or bearish regime:"}{" "}
+                                        {Object.entries(optData.asset_regimes)
+                                            .filter(([_, r]) => r === "Sideways / High Volatility" || r === "Bear Market")
+                                            .map(([ticker, r]) => `${ticker} (${t(r)})`)
+                                            .join(", ")}.{" "}
+                                        {lang === "it"
+                                            ? "Le previsioni per questi titoli hanno un'affidabilità inferiore."
+                                            : "Predictions for these assets have lower reliability."}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Optimization Results */}
+                            {optData && (
+                                <>
+                                    <div className="section-title">{t("opt_perf_title")}</div>
+                                    <div className="metrics-row">
+                                        <MetricCard label="Portfolio Return" displayLabel={t("Portfolio Return")} value={`${fmt(optData.max_sharpe_perf[0] * 100, 1)}`} unit="%" color="#10b981" onInfoClick={openModal} lang={lang} />
+                                        <MetricCard label="Portfolio Risk" displayLabel={t("Portfolio Risk")} value={`${fmt(optData.max_sharpe_perf[1] * 100, 1)}`} unit="%" color="#f43f5e" onInfoClick={openModal} lang={lang} />
+                                        <MetricCard label="Sharpe Ratio" displayLabel={t("Sharpe Ratio")} value={fmt(optData.max_sharpe_perf[2], 2)} color="#10b981" onInfoClick={openModal} lang={lang} />
+                                        <MetricCard label="Elapsed" displayLabel={t("Elapsed")} value={`${optData.elapsed_s}s`} onInfoClick={openModal} lang={lang} />
+                                    </div>
+
+                                    {/* Efficient Frontier Plot */}
+                                    <EfficientFrontierChart data={optData} onInfoClick={openModal} lang={lang} />
+
+                                    {/* Correlation Matrix & Portfolio Backtest Split */}
+                                    <div className="split-row">
+                                        <div className="split-col">
+                                            <CorrelationHeatmapChart 
+                                                tickers={optData.tickers} 
+                                                corrMatrix={optData.corr_matrix} 
+                                                onInfoClick={openModal} 
+                                                lang={lang} 
+                                            />
+                                        </div>
+                                        <div className="split-col">
+                                            <PortfolioBacktestChart 
+                                                data={optData} 
+                                                onInfoClick={openModal} 
+                                                lang={lang} 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Donut Allocation Charts */}
+                                    <div className="split-row">
+                                        <div className="split-col">
+                                            <AllocationChart 
+                                                tickers={optData.tickers} 
+                                                weights={optData.max_sharpe_w} 
+                                                title="Max Sharpe Allocation (Optimal)"
+                                                onInfoClick={openModal}
+                                                lang={lang}
+                                                regimes={optData.asset_regimes}
+                                            />
+                                        </div>
+                                        <div className="split-col">
+                                            <AllocationChart 
+                                                tickers={optData.tickers} 
+                                                weights={optData.min_vol_w} 
+                                                title="Min Volatility Allocation (Conservative)"
+                                                onInfoClick={openModal}
+                                                lang={lang}
+                                                regimes={optData.asset_regimes}
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {portLoading && (
+                                <div className="chart-wrapper" style={{ padding: "40px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", marginTop: "20px" }}>
+                                    <div className="spinner" style={{ width: 44, height: 44, border: "4px solid rgba(255,255,255,0.1)", borderTopColor: "#38bdf8", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></div>
+                                    <div style={{ fontSize: "16px", fontWeight: "bold", color: "#f8fafc" }}>
+                                        {lang === "it" ? "⏳ Ottimizzazione del Portafoglio in corso..." : "⏳ Optimizing Portfolio..."}
+                                    </div>
+                                    <div style={{ fontSize: "13px", color: "#94a3b8", maxWidth: 450, lineHeight: 1.5 }}>
+                                        {lang === "it"
+                                            ? "Download dei dati storici da Yahoo Finance, addestramento dell'IA XGBoost sui singoli titoli e simulazione della Frontiera Efficiente..."
+                                            : "Downloading historical data from Yahoo Finance, training XGBoost AI models on assets, and simulating the Efficient Frontier..."}
+                                    </div>
+                                </div>
+                            )}
+
+                            {!optData && !portLoading && !portError && (
+                                <div className="placeholder">
+                                    {t("placeholder_optimize")}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Tab 2: Custom Portfolio Simulator */}
+                    {activeTab === "simulator" && (
+                        <div>
+                            <CustomPortfolioSimulator optData={optData} lang={lang} onInfoClick={openModal} />
+                        </div>
+                    )}
+
+                    {/* Interactive Definition Modal */}
+                    <InfoModal 
+                        isOpen={modalOpen} 
+                        onClose={() => setModalOpen(false)} 
+                        title={modalTitle} 
+                        content={modalContent} 
+                    />
+                </div>
+            );
+        }
+
+        // Render Application
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

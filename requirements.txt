@@ -1,0 +1,9 @@
+fastapi>=0.100.0
+uvicorn>=0.22.0
+xgboost>=1.7.0
+yfinance>=0.2.38
+pandas>=2.0.0
+numpy>=1.24.0
+requests>=2.31.0
+arch>=8.0.0
+statsmodels>=0.14.0
