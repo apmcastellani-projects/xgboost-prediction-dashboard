@@ -8,7 +8,7 @@
 
 > **Author**: **Alessandro Castellani**  
 > *Undergraduate background in Mathematics (Università dell'Insubria) | Graduate coursework in Applied Statistics & Data Science (Università Cattolica del Sacro Cuore)*  
-> 📬 [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com) | 🔗 [LinkedIn Profile](https://www.linkedin.com/in/alessandro-castellani/) | 🐙 [GitHub Profile](https://github.com/apmcastellani-projects)
+> 📬 [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com) | 🔗 [LinkedIn Profile](https://www.linkedin.com/in/alessandro-castellani-4905a7246-4905a7246/-4905a7246/) | 🐙 [GitHub Profile](https://github.com/apmcastellani-projects)
 
 ---
 
@@ -73,5 +73,5 @@ Simply open `index.html` in any modern web browser to interact with the visual d
 I am actively seeking **internship and analytical collaboration opportunities** across quantitative modeling, sports analytics, and data engineering.
 
 - **Email**: [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com)
-- **LinkedIn**: [linkedin.com/in/alessandro-castellani](https://www.linkedin.com/in/alessandro-castellani/)
+- **LinkedIn**: [linkedin.com/in/alessandro-castellani-4905a7246](https://www.linkedin.com/in/alessandro-castellani-4905a7246-4905a7246/-4905a7246/)
 - **GitHub**: [github.com/apmcastellani-projects](https://github.com/apmcastellani-projects)
