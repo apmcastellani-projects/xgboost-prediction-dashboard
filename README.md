@@ -8,7 +8,7 @@
 
 > **Author**: **Alessandro Castellani**  
 > *Undergraduate background in Mathematics (Università dell'Insubria) | Graduate coursework in Applied Statistics & Data Science (Università Cattolica del Sacro Cuore)*  
-> 📬 [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com) | 🔗 [LinkedIn Profile](https://www.linkedin.com/in/alessandro-castellani/) | 🐙 [GitHub Profile](https://github.com/Alecaste96)
+> 📬 [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com) | 🔗 [LinkedIn Profile](https://www.linkedin.com/in/alessandro-castellani/) | 🐙 [GitHub Profile](https://github.com/apmcastellani-projects)
 
 ---
 
@@ -45,7 +45,7 @@ xgboost-prediction-dashboard/
 
 ### 1. Installation
 ```bash
-git clone https://github.com/Alecaste96/xgboost-prediction-dashboard.git
+git clone https://github.com/apmcastellani-projects/xgboost-prediction-dashboard.git
 cd xgboost-prediction-dashboard
 
 python -m venv .venv
@@ -74,4 +74,4 @@ I am actively seeking **internship and analytical collaboration opportunities** 
 
 - **Email**: [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com)
 - **LinkedIn**: [linkedin.com/in/alessandro-castellani](https://www.linkedin.com/in/alessandro-castellani/)
-- **GitHub**: [github.com/Alecaste96](https://github.com/Alecaste96)
+- **GitHub**: [github.com/apmcastellani-projects](https://github.com/apmcastellani-projects)
