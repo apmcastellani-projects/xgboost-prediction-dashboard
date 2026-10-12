@@ -1043,6 +1043,16 @@
             },
         };
 
+        // Window resize handler to make all Plotly charts perfectly responsive
+        window.addEventListener("resize", () => {
+            const chartDivs = document.querySelectorAll(".js-plotly-plot");
+            chartDivs.forEach((div) => {
+                if (window.Plotly && typeof window.Plotly.Plots.resize === "function") {
+                    try { window.Plotly.Plots.resize(div); } catch (e) {}
+                }
+            });
+        });
+
         // ── Components ───────────────────────────────────────────────────────
 
         function MetricCard({ label, displayLabel, value, unit = "", color, onInfoClick, lang = "it" }) {
@@ -1726,6 +1736,7 @@
         }
 
         function CustomPortfolioSimulator({ optData, lang, onInfoClick }) {
+            const currencySymbol = lang === "it" ? "€" : "$";
             const [tickersInput, setTickersInput] = useState("AAPL, MSFT, TSLA, AMZN");
             const [months, setMonths] = useState(12);
             const [weights, setWeights] = useState({ AAPL: "25", MSFT: "25", TSLA: "25", AMZN: "25" });
@@ -1948,36 +1959,37 @@
                                         className="input-field"
                                         type="number"
                                         min="0"
-                                        placeholder={lang === "it" ? "Inserisci importo ($)" : "Enter amount ($)"}
+                                        placeholder={lang === "it" ? "Inserisci importo (€)" : "Enter amount ($)"}
                                         value={invAmount}
                                         onChange={(e) => setInvAmount(e.target.value)}
                                         style={{ maxWidth: 220, fontSize: "15px" }}
                                     />
                                     {calc && (
                                         <div className="metrics-row" style={{ flexGrow: 1, marginTop: 0 }}>
-                                            <MetricCard label="Expected value" displayLabel={lang === "it" ? "Valore Atteso Custom" : "Expected Custom Value"} value={`$${Number(calc.expected).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#10b981" onInfoClick={onInfoClick} lang={lang} />
-                                            <MetricCard label="Best case (CI)" displayLabel={lang === "it" ? "Caso Migliore Custom" : "Best Custom Case"} value={`$${Number(calc.best).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#34d399" onInfoClick={onInfoClick} lang={lang} />
-                                            <MetricCard label="Worst case (CI)" displayLabel={lang === "it" ? "Caso Peggiore Custom" : "Worst Custom Case"} value={`$${Number(calc.worst).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#f43f5e" onInfoClick={onInfoClick} lang={lang} />
+                                            <MetricCard label="Expected value" displayLabel={lang === "it" ? "Valore Atteso Custom" : "Expected Custom Value"} value={`${currencySymbol}${Number(calc.expected).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#10b981" onInfoClick={onInfoClick} lang={lang} />
+                                            <MetricCard label="Best case (CI)" displayLabel={lang === "it" ? "Caso Migliore Custom" : "Best Custom Case"} value={`${currencySymbol}${Number(calc.best).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#34d399" onInfoClick={onInfoClick} lang={lang} />
+                                            <MetricCard label="Worst case (CI)" displayLabel={lang === "it" ? "Caso Peggiore Custom" : "Worst Custom Case"} value={`${currencySymbol}${Number(calc.worst).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`} color="#f43f5e" onInfoClick={onInfoClick} lang={lang} />
                                         </div>
                                     )}
                                 </div>
                                 {calc && Number(invAmount) > 0 && (
                                     <div style={{ marginTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: 14 }}>
                                         <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: 10 }}>
-                                            🛒 {lang === "it" ? `Ripartizione Spesa Ordini per $${Number(invAmount).toLocaleString()}:` : `Order Purchase Breakdown for $${Number(invAmount).toLocaleString()}:`}
+                                            🛒 {lang === "it" ? `Ripartizione Spesa Ordini per €${Number(invAmount).toLocaleString()}:` : `Order Purchase Breakdown for $${Number(invAmount).toLocaleString()}:`}
                                         </div>
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                                             {tickerList.map((tk) => {
                                                 const wPct = parseFloat(weights[tk]) || 0;
-                                                const amtTk = (Number(invAmount) * (wPct / (sumWeights || 100))).toFixed(2);
+                                                const normWeight = sumWeights > 0 ? (wPct / sumWeights) : (1.0 / (tickerList.length || 1));
+                                                const amtTk = (Number(invAmount) * normWeight).toFixed(2);
                                                 return (
                                                     <div key={tk} style={{ background: "rgba(30, 41, 59, 0.7)", padding: "10px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                         <div>
                                                             <span style={{ fontWeight: "700", color: "#f8fafc", fontSize: "14px" }}>{tk}</span>
-                                                            <span style={{ fontSize: "12px", color: "#64748b", marginLeft: 6 }}>({wPct}%)</span>
+                                                            <span style={{ fontSize: "12px", color: "#64748b", marginLeft: 6 }}>({(normWeight * 100).toFixed(1)}%)</span>
                                                         </div>
                                                         <div style={{ fontWeight: "700", color: "#38bdf8", fontSize: "15px" }}>
-                                                            ${Number(amtTk).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                            {currencySymbol}{Number(amtTk).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                                         </div>
                                                     </div>
                                                 );
@@ -2004,7 +2016,7 @@
             const [portTickers, setPortTickers] = useState("AAPL, MSFT, TSLA, AMZN");
             const [portMonths,  setPortMonths]  = useState(12);
             const [portMinW,    setPortMinW]    = useState(0);
-            const [portMaxW,    setPortMaxW]    = useState(100);
+            const [portMaxW,    setPortMaxW]    = useState(35);
             const [portLoading, setPortLoading] = useState(false);
             const [portError,   setPortError]   = useState(null);
             const [optData,     setOptData]     = useState(null);
@@ -2120,7 +2132,7 @@
                                         type="number"
                                         className="input-field"
                                         min="1"
-                                        max="36"
+                                        max="240"
                                         value={portMonths}
                                         onChange={(e) => setPortMonths(Math.max(1, parseInt(e.target.value) || 1))}
                                         style={{ maxWidth: 60, textAlign: "center" }}

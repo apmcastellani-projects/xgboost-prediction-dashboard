@@ -34,9 +34,10 @@ app = FastAPI(
     version     = "1.0.0",
 )
 
+DEFAULT_ORIGINS = "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000"
 ALLOWED_ORIGINS = [
     o.strip()
-    for o in os.getenv("FRONTEND_URL", "*").split(",")
+    for o in os.getenv("FRONTEND_URL", DEFAULT_ORIGINS).split(",")
     if o.strip()
 ]
 
@@ -117,6 +118,23 @@ def _cached_backtest(ticker: str, horizon: str, years: int) -> BacktestResult:
     return res
 
 
+import re
+
+TICKER_REGEX = re.compile(r"^[A-Z0-9\.\-\_\^]+$")
+MAX_TICKERS_LIMIT = 25
+
+def sanitize_and_validate_tickers(tickers_str: str) -> List[str]:
+    raw_list = [t.strip().upper() for t in tickers_str.split(",") if t.strip()]
+    if not raw_list:
+        raise HTTPException(status_code=400, detail="Nessun ticker specificato.")
+    if len(raw_list) > MAX_TICKERS_LIMIT:
+        raise HTTPException(status_code=400, detail=f"Numero massimo di ticker consentito superato (limite: {MAX_TICKERS_LIMIT}).")
+    for t in raw_list:
+        if not TICKER_REGEX.match(t):
+            raise HTTPException(status_code=400, detail=f"Formato ticker non valido: '{t}'. Consentiti solo caratteri alfanumerici e [.-_^]")
+    return raw_list
+
+
 optimize_cache = SimpleTTLCache(ttl_seconds=3600)
 
 def _cached_optimize(tickers_str: str, months: int, years: int, min_w: float = 0.0, max_w: float = 1.0) -> OptimizationResult:
@@ -126,23 +144,35 @@ def _cached_optimize(tickers_str: str, months: int, years: int, min_w: float = 0
     if cached is not None:
         return cached
         
-    tickers = [t.strip().upper() for t in tickers_str.split(",") if t.strip()]
-    if not tickers:
-        raise ValueError("No tickers provided.")
+    tickers = sanitize_and_validate_tickers(tickers_str)
         
     def _fetch_and_train(t: str):
-        ohlcv = _cached_ohlcv(t, years)
-        res = _cached_predict(t, "monthly", years)
-        return t, ohlcv, res.pred_log_return, res.market_regime
+        try:
+            ohlcv = _cached_ohlcv(t, years)
+            res = _cached_predict(t, "monthly", years)
+            return t, ohlcv, res.pred_log_return, res.market_regime, None
+        except Exception as ex:
+            log.warning(f"Failed processing ticker {t}: {ex}")
+            return t, None, None, None, str(ex)
 
     ohlcv_dict = {}
     predictions = {}
     regimes = {}
+    failed_tickers = []
+
     with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as executor:
-        for t, ohlcv, pred_lr, regime in executor.map(_fetch_and_train, tickers):
-            ohlcv_dict[t] = ohlcv
-            predictions[t] = pred_lr
-            regimes[t] = regime
+        for t, ohlcv, pred_lr, regime, err in executor.map(_fetch_and_train, tickers):
+            if err is not None or ohlcv is None:
+                failed_tickers.append(f"{t} ({err})")
+            else:
+                ohlcv_dict[t] = ohlcv
+                predictions[t] = pred_lr
+                regimes[t] = regime
+        
+    if not ohlcv_dict:
+        raise HTTPException(status_code=400, detail=f"Impossibile scaricare dati per i titoli: {', '.join(failed_tickers)}")
+    if len(ohlcv_dict) < 2:
+        raise HTTPException(status_code=400, detail=f"L'ottimizzazione di portafoglio richiede almeno 2 titoli validi. Falliti: {', '.join(failed_tickers)}")
         
     res = optimize_portfolio(ohlcv_dict, predictions, months, min_w, max_w)
     res.asset_regimes = regimes
@@ -258,9 +288,12 @@ def get_prediction(
     Return XGBoost price prediction + 80% CI for the given horizon.
     Horizon choices: daily (t+1), weekly (t+5), monthly (t+21).
     """
+    t_clean = ticker.strip().upper()
+    if not TICKER_REGEX.match(t_clean):
+        raise HTTPException(status_code=400, detail=f"Formato ticker non valido: '{ticker}'")
     t0 = time.perf_counter()
     try:
-        res = _cached_predict(ticker.upper(), horizon, years)
+        res = _cached_predict(t_clean, horizon, years)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -345,30 +378,51 @@ def get_custom_portfolio(
     """
     t0 = time.perf_counter()
     try:
-        ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
-        weight_list = [float(w.strip()) for w in weights.split(",") if w.strip()]
+        raw_tickers = sanitize_and_validate_tickers(tickers)
+        try:
+            raw_weights = [float(w.strip()) for w in weights.split(",") if w.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Pesi non validi: inserire solo numeri decimali.")
         
-        if len(ticker_list) != len(weight_list):
-            raise ValueError("Number of tickers must match number of weights.")
+        if len(raw_tickers) != len(raw_weights):
+            raise HTTPException(status_code=400, detail="Il numero di ticker deve corrispondere esattamente al numero di pesi.")
             
-        def _fetch_and_train_custom(t: str):
-            ohlcv = _cached_ohlcv(t, years)
-            res = _cached_predict(t, "monthly", years)
-            return t, ohlcv, res.pred_log_return
+        def _fetch_and_train_custom(item):
+            t, w = item
+            try:
+                ohlcv = _cached_ohlcv(t, years)
+                res = _cached_predict(t, "monthly", years)
+                return t, w, ohlcv, res.pred_log_return, None
+            except Exception as ex:
+                log.warning(f"Failed processing custom portfolio ticker {t}: {ex}")
+                return t, w, None, None, str(ex)
 
         ohlcv_dict = {}
         predictions = {}
-        with ThreadPoolExecutor(max_workers=min(8, len(ticker_list))) as executor:
-            for t, ohlcv, pred_lr in executor.map(_fetch_and_train_custom, ticker_list):
-                ohlcv_dict[t] = ohlcv
-                predictions[t] = pred_lr
+        valid_weights = []
+        failed_tickers = []
+        pairs = list(zip(raw_tickers, raw_weights))
+
+        with ThreadPoolExecutor(max_workers=min(8, len(pairs))) as executor:
+            for t, w, ohlcv, pred_lr, err in executor.map(_fetch_and_train_custom, pairs):
+                if err is not None or ohlcv is None:
+                    failed_tickers.append(f"{t} ({err})")
+                else:
+                    ohlcv_dict[t] = ohlcv
+                    predictions[t] = pred_lr
+                    valid_weights.append(w)
             
-        res = calculate_custom_portfolio(ohlcv_dict, predictions, weight_list, months)
+        if not ohlcv_dict:
+            raise HTTPException(status_code=400, detail=f"Nessun dato recuperabile per i titoli: {', '.join(failed_tickers)}")
+            
+        res = calculate_custom_portfolio(ohlcv_dict, predictions, valid_weights, months)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         log.exception(f"Custom portfolio evaluation error for {tickers}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore interno: {e}")
 
     return CustomPortfolioResponse(
         tickers          = res.tickers,
@@ -392,9 +446,12 @@ def get_backtest(
     """
     Run long-or-flat backtest with transaction costs on OOS predictions.
     """
+    t_clean = ticker.strip().upper()
+    if not TICKER_REGEX.match(t_clean):
+        raise HTTPException(status_code=400, detail=f"Formato ticker non valido: '{ticker}'")
     t0 = time.perf_counter()
     try:
-        res = _cached_backtest(ticker.upper(), horizon, years)
+        res = _cached_backtest(t_clean, horizon, years)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -422,8 +479,11 @@ def get_history(
     years:  int = Query(1,   ge=1, le=10),
 ):
     """Return raw OHLCV history for charting."""
+    t_clean = ticker.strip().upper()
+    if not TICKER_REGEX.match(t_clean):
+        raise HTTPException(status_code=400, detail=f"Formato ticker non valido: '{ticker}'")
     try:
-        ohlcv = _cached_ohlcv(ticker.upper(), years)
+        ohlcv = _cached_ohlcv(t_clean, years)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

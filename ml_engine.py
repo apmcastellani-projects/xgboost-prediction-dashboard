@@ -801,28 +801,38 @@ def optimize_portfolio(ohlcv_dict: Dict[str, OHLCV], predictions: Dict[str, floa
     tickers = list(ohlcv_dict.keys())
     num_assets = len(tickers)
     
-    # 1. Align historical daily log-returns
-    returns_df = pd.DataFrame()
+    # 1. Align historical daily log-returns across all traded dates
+    # (using fillna(0.0) so international holidays don't drop trading days in other markets)
+    all_dates = sorted(list(set.union(*[set(ohlcv_dict[t].df.index) for t in tickers])))
+    returns_df = pd.DataFrame(index=all_dates)
     for t in tickers:
         close_prices = ohlcv_dict[t].df["close"]
-        returns_df[t] = np.log(close_prices / close_prices.shift(1))
+        ret = np.log(close_prices / close_prices.shift(1))
+        returns_df[t] = ret.reindex(all_dates).fillna(0.0)
         
-    returns_df = returns_df.dropna()
+    returns_df = returns_df.iloc[1:]  # Drop the initial NaN day
     
     # 2. Compute Multivariate DCC-APARCH Conditional Covariance Matrix
     H_daily, _ = estimate_multivariate_dcc_aparch_cov(returns_df)
     cov_matrix = H_daily * (21 * months)
     corr_matrix = returns_df.corr().values.tolist()
     
-    # Expected returns for M months
-    exp_returns = np.array([predictions[t] * months for t in tickers])
-    rf = 0.02 * (months / 12.0)
+    # Expected returns for M months (compounded monthly log-return scaling)
+    raw_exp_returns = np.array([predictions[t] * months for t in tickers])
+    rf = 0.035 * (months / 12.0)
+    
+    # 3. Bayes / James-Stein Return Shrinkage
+    # Dampens raw ML estimation noise toward the cross-asset equilibrium/grand mean.
+    # Shrinkage intensity gamma in [0, 1]: gamma=0.35 retains 65% ML views + 35% grand mean prior.
+    grand_mean_ret = float(np.mean(raw_exp_returns))
+    shrinkage_intensity = 0.35
+    exp_returns = (1.0 - shrinkage_intensity) * raw_exp_returns + shrinkage_intensity * grand_mean_ret
     
     # Weight constraints check
     if min_w * num_assets > 1.0 or max_w * num_assets < 1.0:
         min_w, max_w = 0.0, 1.0
         
-    # Dirichlet sampling for 500 visual scatter points
+    # 4. Dirichlet sampling for 500 visual scatter points (Frontier cloud)
     num_portfolios = 500
     dirichlet_weights = np.random.dirichlet(np.ones(num_assets), size=num_portfolios)
     
@@ -843,15 +853,53 @@ def optimize_portfolio(ohlcv_dict: Dict[str, OHLCV], predictions: Dict[str, floa
         results[1, i] = p_vol
         results[2, i] = p_sharpe
         
-    # Max Sharpe
-    max_sharpe_idx = np.argmax(results[2])
-    max_sharpe_w = weights_record[max_sharpe_idx].tolist()
-    max_sharpe_perf = (float(results[0, max_sharpe_idx]), float(results[1, max_sharpe_idx]), float(results[2, max_sharpe_idx]))
+    # 5. Exact Analytical Optimization via SLSQP (Ivaylo formulation)
+    # Bounds and constraints
+    bounds = tuple((min_w, max_w) for _ in range(num_assets))
+    budget_constraint = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0}
+    w0 = np.ones(num_assets) / num_assets
     
-    # Min Volatility
-    min_vol_idx = np.argmin(results[1])
-    min_vol_w = weights_record[min_vol_idx].tolist()
-    min_vol_perf = (float(results[0, min_vol_idx]), float(results[1, min_vol_idx]), float(results[2, min_vol_idx]))
+    from scipy.optimize import minimize
+
+    # Exact Min Volatility: minimize w^T * Sigma * w
+    def obj_min_vol(w):
+        return np.dot(w.T, np.dot(cov_matrix, w))
+        
+    res_min_vol = minimize(
+        obj_min_vol, w0, method='SLSQP', bounds=bounds, constraints=[budget_constraint],
+        options={'ftol': 1e-9, 'maxiter': 500}
+    )
+    if res_min_vol.success:
+        min_vol_w = res_min_vol.x.tolist()
+    else:
+        min_vol_idx = np.argmin(results[1])
+        min_vol_w = weights_record[min_vol_idx].tolist()
+        
+    mv_ret = float(np.sum(np.array(min_vol_w) * exp_returns))
+    mv_vol = float(np.sqrt(np.dot(np.array(min_vol_w).T, np.dot(cov_matrix, np.array(min_vol_w)))))
+    mv_sharpe = float((mv_ret - rf) / (mv_vol + 1e-10))
+    min_vol_perf = (mv_ret, mv_vol, mv_sharpe)
+
+    # Exact Max Sharpe (Negative Sharpe objective)
+    def obj_max_sharpe(w):
+        r = np.sum(w * exp_returns)
+        v = np.sqrt(np.dot(w.T, np.dot(cov_matrix, w)))
+        return -(r - rf) / (v + 1e-10)
+
+    res_max_sharpe = minimize(
+        obj_max_sharpe, w0, method='SLSQP', bounds=bounds, constraints=[budget_constraint],
+        options={'ftol': 1e-9, 'maxiter': 500}
+    )
+    if res_max_sharpe.success:
+        max_sharpe_w = res_max_sharpe.x.tolist()
+    else:
+        max_sharpe_idx = np.argmax(results[2])
+        max_sharpe_w = weights_record[max_sharpe_idx].tolist()
+
+    ms_ret = float(np.sum(np.array(max_sharpe_w) * exp_returns))
+    ms_vol = float(np.sqrt(np.dot(np.array(max_sharpe_w).T, np.dot(cov_matrix, np.array(max_sharpe_w)))))
+    ms_sharpe = float((ms_ret - rf) / (ms_vol + 1e-10))
+    max_sharpe_perf = (ms_ret, ms_vol, ms_sharpe)
     
     # Historical portfolio equity curves
     port_dates = [str(d.date()) for d in returns_df.index]
@@ -896,16 +944,22 @@ def calculate_custom_portfolio(
     else:
         w = np.array([1.0 / len(tickers)] * len(tickers))
     
-    returns_df = pd.DataFrame()
+    all_dates = sorted(list(set.union(*[set(ohlcv_dict[t].df.index) for t in tickers])))
+    returns_df = pd.DataFrame(index=all_dates)
     for t in tickers:
         close_prices = ohlcv_dict[t].df["close"]
-        returns_df[t] = np.log(close_prices / close_prices.shift(1))
-    returns_df = returns_df.dropna()
+        ret = np.log(close_prices / close_prices.shift(1))
+        returns_df[t] = ret.reindex(all_dates).fillna(0.0)
+    returns_df = returns_df.iloc[1:]
     
     H_daily, _ = estimate_multivariate_dcc_aparch_cov(returns_df)
     cov_matrix = H_daily * (21 * months)
-    exp_returns = np.array([predictions[t] * months for t in tickers])
-    rf = 0.02 * (months / 12.0)
+    raw_exp_returns = np.array([predictions[t] * months for t in tickers])
+    rf = 0.035 * (months / 12.0)
+    
+    grand_mean_ret = float(np.mean(raw_exp_returns))
+    shrinkage_intensity = 0.35
+    exp_returns = (1.0 - shrinkage_intensity) * raw_exp_returns + shrinkage_intensity * grand_mean_ret
     
     p_ret = float(np.sum(w * exp_returns))
     p_vol = float(np.sqrt(np.dot(w.T, np.dot(cov_matrix, w))))
