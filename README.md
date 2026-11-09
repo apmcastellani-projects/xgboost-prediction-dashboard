@@ -7,7 +7,7 @@
 [![Validation](https://img.shields.io/badge/Validation-Purged%20Walk--Forward-green.svg)]()
 
 > **Author**: **Alessandro Castellani**  
-> *Undergraduate background in Mathematics (Università dell'Insubria) | Graduate coursework in Applied Statistics & Data Science (Università Cattolica del Sacro Cuore)*  
+> *Undergraduate background in Mathematics (Università dell'Insubria) | Graduate coursework in Applied Statistics & Data Analytics for Business (Università Cattolica del Sacro Cuore)*  
 > 📬 [alecaste041202@gmail.com](mailto:alecaste041202@gmail.com) | 🔗 [LinkedIn Profile](https://www.linkedin.com/in/alessandro-castellani-4905a7246-4905a7246/-4905a7246/) | 🐙 [GitHub Profile](https://github.com/apmcastellani-projects)
 
 ---
